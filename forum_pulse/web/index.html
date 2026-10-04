@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forum Pulse</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <span class="brand">Forum Pulse</span>
+    <nav>
+      <a href="#/day" data-nav="day">Day</a>
+      <a href="#/backtest" data-nav="backtest">Backtest</a>
+      <a href="review.html" data-nav="review">Review Queue</a>
+    </nav>
+    <div class="search">
+      <input id="find" list="inst-list" placeholder="Instrument: 2330 / 台積電" autocomplete="off">
+      <datalist id="inst-list"></datalist>
+    </div>
+  </div>
+</header>
+<main id="view"><div class="empty">Loading…</div></main>
+<script src="app.js"></script>
+</body>
+</html>

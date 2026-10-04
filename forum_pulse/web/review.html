@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review Queue</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="brand" href="index.html">Forum Pulse</a>
+    <nav>
+      <a href="index.html#/day">Day</a>
+      <a href="index.html#/backtest">Backtest</a>
+      <a href="review.html" class="on">Review Queue</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <h1>Review Queue</h1>
+  <p class="sub">Aliases that could mean more than one Instrument, or nothing. Decide once for good, by a context word, or one Comment at a time.
+    Undecided Comments count toward nothing.</p>
+  <div class="daypick">
+    <button id="rebuild">Rebuild dashboard</button>
+    <span id="status" class="muted"></span>
+  </div>
+  <div id="queue"><div class="empty">Loading…</div></div>
+
+  <h2>Rule for any Alias</h2>
+  <p class="note">For an Alias that is not in the queue but is matching ordinary text (e.g. a stock name that is also a word).</p>
+  <div class="alias"><div class="row">
+    <input id="r-alias" placeholder="Alias, e.g. 大成" size="10">
+    <select id="r-scope"><option value="always">always means</option><option value="context">when the Comment contains…</option></select>
+    <input id="r-context" placeholder="context word" size="10" hidden>
+    <input id="r-code" placeholder="code, or NOT" size="9">
+    <button id="r-add">Add rule</button>
+  </div></div>
+
+  <h2>Your rules</h2>
+  <div class="card"><table><thead><tr><th>Alias</th><th>Scope</th><th>Means</th><th></th></tr></thead><tbody id="rules"></tbody></table></div>
+</main>
+<div class="toast" id="toast"></div>
+<script src="review.js"></script>
+</body>
+</html>

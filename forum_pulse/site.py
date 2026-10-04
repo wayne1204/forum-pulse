@@ -1,0 +1,108 @@
+"""Writes the dashboard: static pages plus one data file per Forum Day and per
+Instrument, as JS so the pages also open straight from disk (file://)."""
+from __future__ import annotations
+
+import json
+import shutil
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+from . import config
+from .backtest import summarise
+from .instruments import NOT
+from .measure import net_stance, stance_group
+
+WEB = Path(__file__).parent / "web"
+ROWS_PER_DAY = 30
+
+
+def _write(path: Path, key: str, payload) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"FP.loaded({json.dumps(key)}, {json.dumps(payload, ensure_ascii=False)});\n",
+                    encoding="utf-8")
+
+
+def _samples(con, day: str, code: str, k: int = 3) -> list[dict]:
+    rows = con.execute("""
+        SELECT c.user, c.tag, c.text, c.post_id, p.title, s.stance FROM hits h
+        JOIN comments c ON c.id=h.comment_id JOIN posts p USING(post_id)
+        LEFT JOIN stances s ON s.forum=c.forum AND s.day=c.day AND s.user=c.user AND s.code=h.code
+        WHERE c.day=? AND h.code=? AND c.seq>0 AND length(c.text) BETWEEN 6 AND 120
+        ORDER BY (s.stance IS NULL), random() LIMIT ?""", (day, code, k)).fetchall()
+    return [{"user": r["user"], "tag": r["tag"], "text": r["text"], "title": r["title"],
+             "url": f"{config.PTT_BASE}/bbs/{config.PTT_BOARD}/{r['post_id']}.html",
+             "stance": r["stance"]} for r in rows]
+
+
+def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=print) -> None:
+    out = config.SITE_DIR
+    out.mkdir(parents=True, exist_ok=True)
+    for f in WEB.iterdir():
+        shutil.copy(f, out / f.name)
+
+    names = {r["code"]: r["name"] for r in con.execute("SELECT code, name FROM instruments")}
+    fwd = {(r["kind"], r["code"], r["day"]): r for r in bt_rows}
+    comments_per_day = {r["day"]: r["n"] for r in con.execute(
+        "SELECT day, COUNT(*) n FROM comments GROUP BY day")}
+    queued = dict(con.execute("""SELECT c.day, COUNT(*) FROM hits h JOIN comments c ON c.id=h.comment_id
+                                 WHERE h.code IS NULL GROUP BY c.day""").fetchall())
+    today = datetime.now(config.TZ).date().isoformat()
+    days = sorted(d for d in counts if config.BACKFILL_START.isoformat() <= d <= today)
+    featured: set[str] = set()
+
+    for day in days:
+        by_code = counts[day]
+        s = sig.get(day, {"top": set(), "spike": set()})
+        ranked = sorted(((n, c) for c, n in by_code.items() if c != config.MARKET), reverse=True)
+        keep = [c for _, c in ranked[:ROWS_PER_DAY]] + sorted(s["spike"] - {c for _, c in ranked[:ROWS_PER_DAY]})
+        rank = {c: i + 1 for i, (_, c) in enumerate(ranked)}
+
+        def row(code):
+            t = tallies.get((day, code))
+            kind = "Market" if code == config.MARKET else ("Top Mentioned" if code in s["top"] else "Buzz Spike")
+            f = fwd.get((kind, code, day)) or fwd.get(("Buzz Spike", code, day))
+            return {"code": code, "name": names.get(code, code), "mentions": by_code.get(code, 0),
+                    "rank": rank.get(code), "top": code in s["top"], "spike": code in s["spike"],
+                    "tally": t, "net": net_stance(t) if t else None, "group": stance_group(t),
+                    "fwd": {h: f[h] for h in config.HORIZONS} if f else None,
+                    "samples": _samples(con, day, code)}
+
+        rows = [row(c) for c in keep]
+        featured.update(keep[:ROWS_PER_DAY])
+        _write(out / "data" / "day" / f"{day}.js", f"day/{day}", {
+            "day": day, "comments": comments_per_day.get(day, 0),
+            "mentions": sum(by_code.values()), "queued": queued.get(day, 0),
+            "market": row(config.MARKET) if config.MARKET in by_code else None,
+            "rows": rows})
+
+    # Instrument pages, for everything that ever made a day's table.
+    featured.add(config.MARKET)
+    px = defaultdict(dict)
+    for r in con.execute("SELECT symbol, day, close FROM prices"):
+        px[r["symbol"]][r["day"]] = r["close"]
+    for code in featured:
+        series = []
+        sym = config.BENCHMARK if code == config.MARKET else code
+        for day in days:
+            t = tallies.get((day, code))
+            series.append([day, counts[day].get(code, 0), net_stance(t) if t else None,
+                           px[sym].get(day), code in sig.get(day, {}).get("top", ()),
+                           code in sig.get(day, {}).get("spike", ())])
+        _write(out / "data" / "inst" / f"{code}.js", f"inst/{code}",
+               {"code": code, "name": names.get(code, code), "series": series,
+                "signals": [r for r in bt_rows if r["code"] == code]})
+
+    agree = con.execute("""SELECT COUNT(*) n, SUM(stance=model_stance) ok FROM stances
+                           WHERE source='author' AND model_stance IS NOT NULL""").fetchone()
+    _write(out / "data" / "backtest.js", "backtest", {
+        "summary": summarise(bt_rows), "horizons": list(config.HORIZONS),
+        "signals": [dict(r, name=names.get(r["code"], r["code"])) for r in bt_rows],
+        "model_check": {"n": agree["n"], "agree": agree["ok"] or 0}})
+    _write(out / "data" / "meta.js", "meta", {
+        "days": days, "built": datetime.now(config.TZ).isoformat(timespec="minutes"),
+        "instruments": sorted(([c, names.get(c, c)] for c in featured), key=lambda x: x[0]),
+        "config": {"top_n": config.TOP_N, "spike_ratio": config.SPIKE_RATIO,
+                   "spike_min": config.SPIKE_MIN_MENTIONS, "cutoff": config.STANCE_GROUP_CUTOFF,
+                   "min_decided": config.STANCE_GROUP_MIN_DECIDED}})
+    log(f"  site: {len(days)} days, {len(featured)} instruments -> {out}")
