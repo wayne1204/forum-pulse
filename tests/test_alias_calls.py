@@ -128,6 +128,14 @@ def test_calls_resolve_the_hits_and_show_the_choices(queued):
     assert queued.execute("SELECT COUNT(*) FROM alias_calls").fetchone()[0] == 3
 
 
+def test_an_answer_quoting_the_whole_choice_counts_as_its_code(queued):
+    out = alias_calls.decide(queued, caller=caller_choosing(
+        {"HBM": "005930.KS 三星電子 (Korea-listed)", "5007 漲停": "5007", "意見": "NOT (names none of these here)"}),
+        log=quiet)
+    assert out["decided"] == 3
+    assert _hits(queued)[("三星 HBM 又出包", "三星")] == "005930.KS"
+
+
 def test_an_answer_outside_the_choices_leaves_the_hit_queued(queued):
     out = alias_calls.decide(queued, caller=caller_choosing({"HBM": "2330"}), log=quiet)
     assert out["decided"] == 0 and out["pending"] == 3

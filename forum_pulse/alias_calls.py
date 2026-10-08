@@ -96,7 +96,9 @@ def decide(con, caller=None, log=print) -> dict:
     def run(job):
         batch, prompt = job
         items, cost = caller(prompt)
-        return job, {c.id: c.choice.strip() for c in items}, cost
+        # The model sometimes answers with the whole choice ("005930.KS 三星電子
+        # (Korea-listed)") rather than its code; the code is the first word.
+        return job, {c.id: (c.choice.split() or [""])[0] for c in items}, cost
 
     decided, quota = 0, None
     with ThreadPoolExecutor(config.LLM_WORKERS) as pool:
