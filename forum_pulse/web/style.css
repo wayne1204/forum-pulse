@@ -103,6 +103,10 @@ tr.samples .c { margin: 3px 0; }
 .chip.st-bearish { border-color: var(--bear); color: var(--bear); }
 .chip.st-mixed { border-color: var(--mixed); }
 .chip { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 9px; border: 1px solid var(--border); color: var(--text-secondary); margin-right: 4px; }
+.grp { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 9px; border: 1px solid; }
+.grp-bullish { color: var(--bull); border-color: var(--bull); background: color-mix(in srgb, var(--bull) 12%, transparent); }
+.grp-bearish { color: var(--bear); border-color: var(--bear); background: color-mix(in srgb, var(--bear) 12%, transparent); }
+.grp-split { color: var(--text-secondary); border-color: var(--neutral); background: color-mix(in srgb, var(--neutral) 25%, transparent); }
 .chip.top { border-color: var(--accent); }
 .chip.spike { border-color: var(--mixed); }
 

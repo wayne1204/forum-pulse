@@ -24,6 +24,8 @@ const signed = (x, d) => { const r = Number(x.toFixed(d)); return (r > 0 ? "+" :
 const pct = (v, d = 1) => v == null ? "–" : signed(v * 100, d) + "%";
 // Taiwan convention: red is up, green is down; from the rounded figure, like signed().
 const updown = (v, d = 1) => { const r = v == null ? 0 : Number((v * 100).toFixed(d)); return r > 0 ? "up" : r < 0 ? "down" : ""; };
+// A Stance Group as a pill: red Bullish, blue Bearish, grey Split.
+const group = g => g ? `<span class="grp grp-${g.toLowerCase()}">${g}</span>` : `<span class="muted">–</span>`;
 const sgn = (v, d = 2) => v == null ? "–" : signed(v, d);
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -108,7 +110,7 @@ function dayRow(r, k) {
     <td class="n muted">${r.rank ?? ""}</td>
     <td><a href="#/inst/${encodeURIComponent(r.code)}">${esc(r.code)} ${esc(r.name)}</a></td>
     <td class="n">${r.mentions}</td><td>${chips}</td><td>${stanceBar(r.tally)}</td>
-    <td class="n">${sgn(r.net)}</td><td>${r.group ?? '<span class="muted">–</span>'}</td>
+    <td class="n">${sgn(r.net)}</td><td>${group(r.group)}</td>
     ${["1D", "1W", "1M", "3M"].map(h => `<td class="n">${pct(f[h])}</td>`).join("")}
   </tr><tr class="samples" hidden><td colspan="11"></td></tr>`;
 }
@@ -156,7 +158,7 @@ async function instView(code) {
     <div class="card"><table><thead><tr><th>Forum Day</th><th>Signal</th><th class="n">Net</th><th>Group</th>
       ${["1D", "1W", "1M", "3M"].map(h => `<th class="n">${h}</th>`).join("")}</tr></thead>
       <tbody>${sigs.map(s => `<tr><td><a href="#/day/${s.day}">${s.day}</a></td><td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td>
-        <td>${s.group ?? "–"}</td>${["1D", "1W", "1M", "3M"].map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
+        <td>${group(s.group)}</td>${["1D", "1W", "1M", "3M"].map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
         || `<tr><td colspan="8" class="empty">No Signals with prices yet.</td></tr>`}</tbody></table></div>`;
   drawInst(d);
 }
@@ -200,7 +202,7 @@ async function backtestView() {
   const table = kind => {
     const rows = ["All", "Bullish", "Split", "Bearish"].map(g => {
       const by = Object.fromEntries(b.summary.filter(s => s.kind === kind && s.group === g).map(s => [s.horizon, s]));
-      return `<tr><td>${g}</td>${H.map(h => cell(by[h])).join("")}</tr>`;
+      return `<tr><td>${g === "All" ? g : group(g)}</td>${H.map(h => cell(by[h])).join("")}</tr>`;
     }).join("");
     return `<div class="card btgrid"><table><thead><tr><th>Stance Group</th>${H.map(h => `<th class="n">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
   };
@@ -219,7 +221,7 @@ async function backtestView() {
     <div class="card"><table><thead><tr><th>Forum Day</th><th>Instrument</th><th>Signal</th><th class="n">Net</th><th>Group</th>
       ${H.map(h => `<th class="n">${h}</th>`).join("")}</tr></thead><tbody>
       ${recent.map(s => `<tr><td><a href="#/day/${s.day}">${s.day}</a></td><td><a href="#/inst/${encodeURIComponent(s.code)}">${esc(s.code)} ${esc(s.name)}</a></td>
-        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${s.group ?? "–"}</td>${H.map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
+        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${group(s.group)}</td>${H.map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
         || `<tr><td colspan="9" class="empty">No Signals with prices yet.</td></tr>`}
     </tbody></table></div>`;
 }
