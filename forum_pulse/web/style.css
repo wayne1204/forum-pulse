@@ -12,6 +12,8 @@
   --bear: #2a78d6;
   --neutral: #c9c8c2;
   --mixed: #eda100;
+  --up: #d03b3a;        /* returns: red up, green down */
+  --down: #17894a;
   --grid: #ebeae6;
 }
 @media (prefers-color-scheme: dark) {
@@ -29,6 +31,8 @@
     --bear: #3987e5;
     --neutral: #55554f;
     --mixed: #c98500;
+    --up: #ef6b6a;
+    --down: #45c07a;
     --grid: #2a2a27;
   }
 }
@@ -37,7 +41,7 @@
   --surface-0: #121211; --surface-1: #1a1a19; --surface-2: #242422; --border: #33332f;
   --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8d8c84;
   --accent: #3987e5; --bull: #e66767; --bear: #3987e5; --neutral: #55554f; --mixed: #c98500;
-  --grid: #2a2a27;
+  --up: #ef6b6a; --down: #45c07a; --grid: #2a2a27;
 }
 
 * { box-sizing: border-box; }
@@ -110,6 +114,8 @@ tr.samples .c { margin: 3px 0; }
 
 .btgrid td.cell { line-height: 1.25; }
 .btgrid .main { font-weight: 600; }
+.up { color: var(--up); }
+.down { color: var(--down); }
 .btgrid .sm { color: var(--text-muted); font-size: 11px; }
 .note { color: var(--text-secondary); font-size: 13px; max-width: 760px; }
 .empty { padding: 30px; text-align: center; color: var(--text-muted); }

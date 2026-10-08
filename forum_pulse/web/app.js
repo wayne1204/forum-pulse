@@ -22,6 +22,8 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 // Sign from the rounded figure, so a tiny loss never reads "−0.0%".
 const signed = (x, d) => { const r = Number(x.toFixed(d)); return (r > 0 ? "+" : r < 0 ? "−" : "") + Math.abs(r).toFixed(d); };
 const pct = (v, d = 1) => v == null ? "–" : signed(v * 100, d) + "%";
+// Taiwan convention: red is up, green is down; from the rounded figure, like signed().
+const updown = (v, d = 1) => { const r = v == null ? 0 : Number((v * 100).toFixed(d)); return r > 0 ? "up" : r < 0 ? "down" : ""; };
 const sgn = (v, d = 2) => v == null ? "–" : signed(v, d);
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -131,7 +133,7 @@ async function instView(code) {
     <div class="card"><table><thead><tr><th>Forum Day</th><th>Signal</th><th class="n">Net</th><th>Group</th>
       ${["1D", "1W", "1M", "3M"].map(h => `<th class="n">${h}</th>`).join("")}</tr></thead>
       <tbody>${sigs.map(s => `<tr><td><a href="#/day/${s.day}">${s.day}</a></td><td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td>
-        <td>${s.group ?? "–"}</td>${["1D", "1W", "1M", "3M"].map(h => `<td class="n">${pct(s[h])}</td>`).join("")}</tr>`).join("")
+        <td>${s.group ?? "–"}</td>${["1D", "1W", "1M", "3M"].map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
         || `<tr><td colspan="8" class="empty">No Signals with prices yet.</td></tr>`}</tbody></table></div>`;
   drawInst(d);
 }
@@ -170,7 +172,7 @@ async function backtestView() {
   setNav("backtest");
   const b = await FP.load("backtest", META.built);
   const H = b.horizons, cfg = META.config;
-  const cell = s => s && s.n ? `<td class="n cell"><div class="main">${pct(s.mean, 2)}</div>
+  const cell = s => s && s.n ? `<td class="n cell"><div class="main ${updown(s.mean, 2)}">${pct(s.mean, 2)}</div>
       <div class="sm">med ${pct(s.median, 2)} · beat ${(s.hit * 100).toFixed(0)}% · n ${s.n}</div></td>` : `<td class="n cell muted">–</td>`;
   const table = kind => {
     const rows = ["All", "Bullish", "Split", "Bearish"].map(g => {
@@ -194,7 +196,7 @@ async function backtestView() {
     <div class="card"><table><thead><tr><th>Forum Day</th><th>Instrument</th><th>Signal</th><th class="n">Net</th><th>Group</th>
       ${H.map(h => `<th class="n">${h}</th>`).join("")}</tr></thead><tbody>
       ${recent.map(s => `<tr><td><a href="#/day/${s.day}">${s.day}</a></td><td><a href="#/inst/${encodeURIComponent(s.code)}">${esc(s.code)} ${esc(s.name)}</a></td>
-        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${s.group ?? "–"}</td>${H.map(h => `<td class="n">${pct(s[h])}</td>`).join("")}</tr>`).join("")
+        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${s.group ?? "–"}</td>${H.map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
         || `<tr><td colspan="9" class="empty">No Signals with prices yet.</td></tr>`}
     </tbody></table></div>`;
 }
