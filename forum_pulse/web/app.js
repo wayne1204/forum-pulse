@@ -80,7 +80,7 @@ async function dayView(day) {
       <tbody>${d.rows.map((r, k) => dayRow(r, k)).join("") || `<tr><td colspan="11" class="empty">No Mentions.</td></tr>`}</tbody>
     </table></div>
     <p class="note">Excess Return = Instrument return from the next trading day's open, minus TAIEX total return over the same Horizon (blank until enough days have passed).
-      Click a row for sample comments.</p>`;
+      Click a row for its comments.</p>`;
   const go = dd => { location.hash = "#/day/" + dd; };
   $("#prev").onclick = () => go(days[i - 1]);
   $("#next").onclick = () => go(days[i + 1]);
@@ -89,6 +89,7 @@ async function dayView(day) {
   document.querySelectorAll("tr.rowx").forEach(tr => tr.onclick = e => {
     if (e.target.closest("a")) return;
     const s = tr.nextElementSibling; s.hidden = !s.hidden;
+    if (!s.hidden && !s.dataset.done) { s.dataset.done = "1"; showComments(s.firstElementChild, day, tr.dataset.code); }
   });
 }
 
@@ -103,15 +104,37 @@ function nearestDay(want) {
 function dayRow(r, k) {
   const chips = (r.top ? `<span class="chip top">TOP</span>` : "") + (r.spike ? `<span class="chip spike">SPIKE</span>` : "");
   const f = r.fwd || {};
-  const samples = (r.samples || []).map(s => `<div class="c"><b>${esc(s.user)}</b> ${esc(s.tag)}: ${esc(s.text)}
-      ${s.stance ? `<span class="chip">${s.stance}</span>` : ""} <a href="${esc(s.url)}" target="_blank" rel="noopener" class="muted">${esc(s.title)}</a></div>`).join("");
-  return `<tr class="rowx">
+  return `<tr class="rowx" data-code="${esc(r.code)}">
     <td class="n muted">${r.rank ?? ""}</td>
     <td><a href="#/inst/${encodeURIComponent(r.code)}">${esc(r.code)} ${esc(r.name)}</a></td>
     <td class="n">${r.mentions}</td><td>${chips}</td><td>${stanceBar(r.tally)}</td>
     <td class="n">${sgn(r.net)}</td><td>${r.group ?? '<span class="muted">–</span>'}</td>
     ${["1D", "1W", "1M", "3M"].map(h => `<td class="n">${pct(f[h])}</td>`).join("")}
-  </tr><tr class="samples" hidden><td colspan="11">${samples || "No sample comments."}</td></tr>`;
+  </tr><tr class="samples" hidden><td colspan="11"></td></tr>`;
+}
+
+// Every comment naming the row's Instrument, filtered by its user's Stance.
+const STANCES = [["all", "All"], ["bullish", "Bullish 偏多"], ["bearish", "Bearish 偏空"],
+                 ["neutral", "Neutral"], ["mixed", "Mixed"], ["none", "Unlabelled"]];
+async function showComments(td, day, code) {
+  td.innerHTML = `<span class="muted">Loading comments…</span>`;
+  let d;
+  try { d = await FP.load("cmt/" + day, META.built); }
+  catch { td.innerHTML = `<span class="muted">No comments file for this day; run <code>./run.sh rebuild</code>.</span>`; return; }
+  const all = d.by_code[code] || [];
+  const key = c => c[4] || "none";
+  const n = {}; all.forEach(c => n[key(c)] = (n[key(c)] || 0) + 1);
+  const line = ([user, tag, text, pid, stance]) => `<div class="c"><b>${esc(user)}</b> ${esc(tag)}: ${esc(text)}
+      ${stance ? `<span class="chip st-${stance}">${stance}</span>` : ""}
+      <a href="${esc(d.url + pid)}.html" target="_blank" rel="noopener" class="muted">${esc(d.posts[pid])}</a></div>`;
+  const draw = want => {
+    const shown = want === "all" ? all : all.filter(c => key(c) === want);
+    td.innerHTML = `<div class="cfilter">${STANCES.filter(([k]) => k === "all" || n[k]).map(([k, label]) =>
+        `<button data-k="${k}" class="${k === want ? "on" : ""}">${label} ${k === "all" ? all.length : n[k]}</button>`).join("")}</div>
+      <div class="clist">${shown.map(line).join("") || `<span class="muted">No comments.</span>`}</div>`;
+    td.querySelectorAll(".cfilter button").forEach(b => b.onclick = () => draw(b.dataset.k));
+  };
+  draw("all");
 }
 
 // ---- Instrument --------------------------------------------------------------

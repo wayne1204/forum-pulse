@@ -60,8 +60,11 @@ def test_daily_crawls_measures_and_publishes(offline):
     [row] = day["rows"]
     assert (row["code"], row["rank"], row["top"], row["net"]) == ("2330", 1, True, 1.0)
     assert row["fwd"]["1D"] == pytest.approx(0.10 - 0.01) and row["fwd"]["1M"] is None
-    assert [s["text"] for s in row["samples"]] == ["GG 今天一定噴上天"]
     assert day["market"]["code"] == config.MARKET
+    key, cmt = read_js(out / "data" / "cmt" / "2026-10-02.js")
+    assert key == "cmt/2026-10-02" and cmt["posts"] == {PID: "[標的] 2330 台積電 多"}
+    assert cmt["by_code"] == {"2330": [["u1", "推", "GG 今天一定噴上天", PID, None]],
+                              config.MARKET: [["u2", "推", "大盤要崩", PID, None]]}
 
     _, inst = read_js(out / "data" / "inst" / "2330.js")
     assert inst["series"] == [["2026-10-02", 2, 1.0, 99.0, True, False]]

@@ -23,16 +23,21 @@ def _write(path: Path, key: str, payload) -> None:
                     encoding="utf-8")
 
 
-def _samples(con, day: str, code: str, k: int = 3) -> list[dict]:
-    rows = con.execute("""
-        SELECT c.user, c.tag, c.text, c.post_id, p.title, s.stance FROM hits h
+def _comments(con, day: str, codes: list[str]) -> dict:
+    """Every push naming one of `codes` on `day`, oldest first, each with its
+    user's Stance on that Instrument. Post titles are listed once."""
+    q = ",".join("?" * len(codes))
+    rows = con.execute(f"""
+        SELECT h.code, c.user, c.tag, c.text, c.post_id, p.title, s.stance FROM hits h
         JOIN comments c ON c.id=h.comment_id JOIN posts p USING(post_id)
         LEFT JOIN stances s ON s.forum=c.forum AND s.day=c.day AND s.user=c.user AND s.code=h.code
-        WHERE c.day=? AND h.code=? AND c.seq>0 AND length(c.text) BETWEEN 6 AND 120
-        ORDER BY (s.stance IS NULL), random() LIMIT ?""", (day, code, k)).fetchall()
-    return [{"user": r["user"], "tag": r["tag"], "text": r["text"], "title": r["title"],
-             "url": f"{config.PTT_BASE}/bbs/{config.PTT_BOARD}/{r['post_id']}.html",
-             "stance": r["stance"]} for r in rows]
+        WHERE c.day=? AND h.code IN ({q}) AND c.seq>0
+        GROUP BY h.code, c.id ORDER BY c.id""", (day, *codes)).fetchall()
+    posts, by_code = {}, defaultdict(list)
+    for r in rows:
+        posts[r["post_id"]] = r["title"]
+        by_code[r["code"]].append([r["user"], r["tag"], r["text"], r["post_id"], r["stance"]])
+    return {"url": f"{config.PTT_BASE}/bbs/{config.PTT_BOARD}/", "posts": posts, "by_code": by_code}
 
 
 def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=print) -> None:
@@ -65,8 +70,7 @@ def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=
             return {"code": code, "name": names.get(code, code), "mentions": by_code.get(code, 0),
                     "rank": rank.get(code), "top": code in s["top"], "spike": code in s["spike"],
                     "tally": t, "net": net_stance(t) if t else None, "group": stance_group(t),
-                    "fwd": {h: f[h] for h in config.HORIZONS} if f else None,
-                    "samples": _samples(con, day, code)}
+                    "fwd": {h: f[h] for h in config.HORIZONS} if f else None}
 
         rows = [row(c) for c in keep]
         featured.update(keep[:ROWS_PER_DAY])
@@ -75,6 +79,8 @@ def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=
             "mentions": sum(by_code.values()), "queued": queued.get(day, 0),
             "market": row(config.MARKET) if config.MARKET in by_code else None,
             "rows": rows})
+        _write(out / "data" / "cmt" / f"{day}.js", f"cmt/{day}",
+               _comments(con, day, keep + [config.MARKET]))
 
     # Instrument pages, for everything that ever made a day's table.
     featured.add(config.MARKET)

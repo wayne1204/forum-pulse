@@ -94,6 +94,14 @@ tr.rowx { cursor: pointer; }
 tr.rowx:hover td { background: var(--surface-2); }
 tr.samples td { white-space: normal; background: var(--surface-2); color: var(--text-secondary); font-size: 13px; }
 tr.samples .c { margin: 3px 0; }
+.cfilter { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.cfilter button { font: inherit; font-size: 12px; padding: 2px 10px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); }
+.cfilter button.on { border-color: var(--accent); color: var(--text-primary); font-weight: 600; }
+.clist { max-height: 420px; overflow-y: auto; padding-right: 6px; }
+.chip.st-bullish { border-color: var(--bull); color: var(--bull); }
+.chip.st-bearish { border-color: var(--bear); color: var(--bear); }
+.chip.st-mixed { border-color: var(--mixed); }
 .chip { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 9px; border: 1px solid var(--border); color: var(--text-secondary); margin-right: 4px; }
 .chip.top { border-color: var(--accent); }
 .chip.spike { border-color: var(--mixed); }
