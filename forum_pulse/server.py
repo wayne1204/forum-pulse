@@ -116,7 +116,8 @@ class Handler(SimpleHTTPRequestHandler):
         self._json({"error": "not found"}, 404)
 
     def log_message(self, fmt, *args):
-        if "/api/" in (args[0] if args else ""):
+        # args[0] is the request line, or an HTTPStatus when send_error logs
+        if "/api/" in str(args[0] if args else ""):
             super().log_message(fmt, *args)
 
 
