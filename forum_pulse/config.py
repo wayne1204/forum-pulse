@@ -33,11 +33,20 @@ STANCE_GROUP_CUTOFF = 0.3
 STANCE_GROUP_MIN_DECIDED = 5  # bullish + bearish Mentions a Signal needs
 
 # --- the model ----------------------------------------------------------------
+# "claude-cli": `claude -p` on the Claude subscription, no API bill (default).
+# "api": the Anthropic API with ANTHROPIC_API_KEY, billed per token.
+LLM_BACKEND = "claude-cli"
+LLM_CLI_MODEL = "haiku"
+# Subscription usage is limited, so a CLI run labels at most this many
+# Mentions, newest Forum Day first; later runs continue the backlog.
+LLM_CLI_MAX_PER_RUN = 2000
+# Only Forum Days from here on are labelled; earlier ones keep counts but no Stance.
+LLM_LABEL_FROM = date(2026, 1, 1)
 LLM_MODEL = "claude-haiku-4-5"
 LLM_PRICE_IN = 1.00 / 1e6    # USD per token
 LLM_PRICE_OUT = 5.00 / 1e6
-LLM_ITEMS_PER_REQUEST = 25
-LLM_WORKERS = 4
+LLM_ITEMS_PER_REQUEST = 50
+LLM_WORKERS = 8           # parallel claude -p calls; 8 measured ~1.6x faster than 4
 LLM_CONTEXT_PUSHES = 3       # pushes shown before each of the user's own
 # A backfill could label hundreds of thousands of Mentions; one run spends at
 # most this much and the next run carries on where it stopped.

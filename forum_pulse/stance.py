@@ -1,8 +1,14 @@
-"""Labelling each Mention's Stance with Claude. Only Signals and the Market are
-labelled — they are what the backtest and the Today page read — and one run
-spends at most LLM_BUDGET_USD_PER_RUN."""
+"""Labelling each Mention's Stance with Claude, through Claude Code headless
+(subscription, the default) or the API. Only Signals and the Market are
+labelled: they are what the backtest and the Day page read."""
 from __future__ import annotations
 
+import json
+import os
+import shutil
+import sqlite3
+import subprocess
+import threading
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
@@ -10,7 +16,6 @@ from typing import Literal
 from pydantic import BaseModel
 
 from . import config
-from .instruments import NOT
 from .measure import daily_counts, signals
 
 SYSTEM = """You read comments from PTT Stock (批踢踢股票板), Taiwan's largest retail stock forum, and judge each commenter's STANCE on one named instrument.
@@ -47,7 +52,10 @@ def _pending(con) -> list[dict]:
         FROM mentions m LEFT JOIN stances s USING(forum, day, user, code)
         ORDER BY m.day DESC""").fetchall()
     out = []
+    since = config.LLM_LABEL_FROM.isoformat()
     for r in rows:
+        if r["day"] < since:
+            continue
         if r["code"] != config.MARKET and (r["day"], r["code"]) not in wanted:
             continue
         if r["source"] == "author" and r["model_stance"] is not None:
@@ -86,39 +94,81 @@ def _context(con, m: dict, names: dict[str, str]) -> str:
     return f"Instrument: {label}\n" + "\n".join(lines)
 
 
-def label(con, client=None, budget: float | None = None, log=print) -> dict:
+class QuotaExhausted(Exception):
+    """The Claude subscription's usage limit is reached; stop the run."""
+
+
+_SCHEMA = json.dumps(Labels.model_json_schema())
+
+
+def _api_caller():
+    """Anthropic API: billed per token. Returns call(prompt) -> (labels, USD)."""
+    import anthropic
+    client = anthropic.Anthropic()
+    client.models.retrieve(config.LLM_MODEL)     # fail fast without credentials
+
+    def call(prompt):
+        resp = client.messages.parse(
+            model=config.LLM_MODEL, max_tokens=4000, system=SYSTEM,
+            messages=[{"role": "user", "content": prompt}], output_format=Labels)
+        cost = resp.usage.input_tokens * config.LLM_PRICE_IN + resp.usage.output_tokens * config.LLM_PRICE_OUT
+        return ([] if resp.parsed_output is None else resp.parsed_output.items), cost
+    return call
+
+
+def _cli_caller():
+    """Claude Code headless (`claude -p`): runs on the user's Claude
+    subscription, so there is no API bill — only subscription usage."""
+    exe = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
+    if not os.path.exists(exe):
+        raise FileNotFoundError("claude CLI not found")
+    # Thinking was ~87% of output tokens and made labels worse against Author
+    # Stances (77% vs 95% agreement); no batch repeats a prompt, so a cache
+    # write is paid for and never read. Together ~4x less usage per Mention.
+    env = {**os.environ, "MAX_THINKING_TOKENS": "0", "DISABLE_PROMPT_CACHING": "1"}
+
+    def call(prompt):
+        out = subprocess.run(
+            [exe, "-p", "--model", config.LLM_CLI_MODEL, "--tools", "", "--no-session-persistence",
+             "--system-prompt", SYSTEM, "--output-format", "json", "--json-schema", _SCHEMA],
+            input=prompt, capture_output=True, text=True, timeout=300, cwd=config.DATA_DIR, env=env)
+        if out.returncode != 0 and '"api_error_status":429' not in out.stdout:
+            raise RuntimeError((out.stderr or out.stdout)[-300:])
+        d = json.loads(out.stdout or "{}")
+        if d.get("api_error_status") == 429:
+            raise QuotaExhausted(str(d.get("result"))[:200])
+        if d.get("is_error") or not d.get("structured_output"):
+            raise RuntimeError(str(d.get("result"))[:300])
+        return Labels.model_validate(d["structured_output"]).items, 0.0
+    return call
+
+
+def label(con, caller=None, budget: float | None = None, log=print) -> dict:
+    """Label pending Mentions. With the API backend a run stops at `budget`
+    USD; with the CLI backend, after LLM_CLI_MAX_PER_RUN Mentions."""
+    backend = config.LLM_BACKEND
     budget = config.LLM_BUDGET_USD_PER_RUN if budget is None else budget
     pending = _pending(con)
     if not pending:
         log("  stance: nothing to label")
         return {"labelled": 0, "pending": 0, "cost": 0.0}
     names = {r["code"]: r["name"] for r in con.execute("SELECT code, name FROM instruments")}
-    if client is None:
+    if caller is None:
         try:
-            import anthropic
-            client = anthropic.Anthropic()
-            client.models.retrieve(config.LLM_MODEL)     # fail fast without credentials
+            caller = _cli_caller() if backend == "claude-cli" else _api_caller()
         except Exception as e:
-            log(f"  stance: no Claude credentials ({type(e).__name__}); {len(pending)} Mentions left unlabelled")
+            log(f"  stance: {backend} unavailable ({type(e).__name__}: {e}); {len(pending)} Mentions left unlabelled")
             return {"labelled": 0, "pending": len(pending), "cost": 0.0}
-
-    batches = [pending[i:i + config.LLM_ITEMS_PER_REQUEST]
-               for i in range(0, len(pending), config.LLM_ITEMS_PER_REQUEST)]
-    est_chars = sum(len(_context(con, m, names)) for m in pending[:200]) / min(len(pending), 200)
-    est = len(pending) * est_chars * 1.3 * config.LLM_PRICE_IN + len(pending) * 12 * config.LLM_PRICE_OUT
-    log(f"  stance: {len(pending)} Mentions to label, est. ${est:.2f}; this run's budget ${budget:.2f}")
-
-    def run(batch):
-        prompt = "\n\n".join(f"### item {i}\n{_context(con_local(), m, names)}" for i, m in enumerate(batch))
-        resp = client.messages.parse(
-            model=config.LLM_MODEL, max_tokens=4000, system=SYSTEM,
-            messages=[{"role": "user", "content": prompt}], output_format=Labels)
-        cost = resp.usage.input_tokens * config.LLM_PRICE_IN + resp.usage.output_tokens * config.LLM_PRICE_OUT
-        got = {} if resp.parsed_output is None else {l.id: l.stance for l in resp.parsed_output.items}
-        return batch, got, cost
+    if backend == "claude-cli":
+        pending_run = pending[:config.LLM_CLI_MAX_PER_RUN]
+        log(f"  stance: {len(pending)} Mentions pending; labelling {len(pending_run)} via claude -p (subscription)")
+    else:
+        pending_run = pending
+        log(f"  stance: {len(pending)} Mentions pending via API; this run's budget ${budget:.2f}")
+    batches = [pending_run[i:i + config.LLM_ITEMS_PER_REQUEST]
+               for i in range(0, len(pending_run), config.LLM_ITEMS_PER_REQUEST)]
 
     # sqlite connections stay on their own thread
-    import sqlite3, threading
     local = threading.local()
 
     def con_local():
@@ -127,14 +177,23 @@ def label(con, client=None, budget: float | None = None, log=print) -> dict:
             local.con.row_factory = sqlite3.Row
         return local.con
 
-    spent, labelled = 0.0, 0
+    def run(batch):
+        prompt = "\n\n".join(f"### item {i}\n{_context(con_local(), m, names)}" for i, m in enumerate(batch))
+        items, cost = caller(prompt)
+        return batch, {l.id: l.stance for l in items}, cost
+
+    spent, labelled, failed = 0.0, 0, 0
     with ThreadPoolExecutor(config.LLM_WORKERS) as pool:
         for i in range(0, len(batches), config.LLM_WORKERS):
             if spent >= budget:
                 break
             wave = batches[i:i + config.LLM_WORKERS]
-            for batch, got, cost in pool.map(_safe(run, log), wave):
+            results = list(pool.map(_safe(run, log), wave))
+            quota = next((g for _, g, _ in results if isinstance(g, QuotaExhausted)), None)
+            results = [r for r in results if not isinstance(r[1], QuotaExhausted)]
+            for batch, got, cost in results:
                 spent += cost
+                failed += not got
                 for idx, m in enumerate(batch):
                     s = got.get(idx)
                     if s is None:
@@ -150,11 +209,16 @@ def label(con, client=None, budget: float | None = None, log=print) -> dict:
                                     (m["forum"], m["day"], m["user"], m["code"], s, m["n_comments"]))
                     labelled += 1
             con.commit()
-            done = min(i + config.LLM_WORKERS, len(batches)) * config.LLM_ITEMS_PER_REQUEST
+            if quota:
+                log(f"  stance: usage limit reached ({quota}); stopping, the next run continues")
+                break
+            if failed >= 3 * config.LLM_WORKERS and labelled == 0:
+                log("  stance: every request is failing (quota or auth?); stopping this run")
+                break
             if (i // config.LLM_WORKERS) % 10 == 0:
-                log(f"  stance: ~{min(done, len(pending))}/{len(pending)} sent, ${spent:.2f} spent")
+                log(f"  stance: {labelled}/{len(pending_run)} labelled" + (f", ${spent:.2f}" if spent else ""))
     left = len(pending) - labelled
-    log(f"  stance: labelled {labelled}, ${spent:.2f} spent, {left} left for later runs")
+    log(f"  stance: labelled {labelled}" + (f", ${spent:.2f} spent" if spent else "") + f", {left} left for later runs")
     return {"labelled": labelled, "pending": left, "cost": spent}
 
 
@@ -162,6 +226,8 @@ def _safe(fn, log):
     def wrapped(batch):
         try:
             return fn(batch)
+        except QuotaExhausted as e:
+            return batch, e, 0.0          # keep the wave's other results
         except Exception as e:      # one failed request must not lose the wave
             log(f"  stance: a request failed: {type(e).__name__}: {e}")
             return batch, {}, 0.0

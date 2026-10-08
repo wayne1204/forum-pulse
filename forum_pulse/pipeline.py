@@ -84,3 +84,20 @@ def rebuild(log=_log) -> None:
         measure.author_stances(con)
         con.commit()
         _derive_and_publish(con, fetch_prices=False, log=log)
+
+
+def label_only(since: str | None = None, max_mentions: int | None = None,
+               workers: int | None = None, log=_log) -> None:
+    """Label a chosen range of Forum Days, then republish. No crawl, no prices."""
+    if workers:
+        config.LLM_WORKERS = workers
+    if since:
+        config.LLM_LABEL_FROM = date.fromisoformat(since)
+    if max_mentions is not None:
+        config.LLM_CLI_MAX_PER_RUN = max_mentions or 10**9
+    t0 = time.time()
+    with db.session() as con:
+        stance.label(con, log=log)
+        con.commit()
+        _derive_and_publish(con, fetch_prices=False, log=log)
+    log(f"done in {time.time() - t0:.0f}s")
