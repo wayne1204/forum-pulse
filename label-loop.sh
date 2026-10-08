@@ -2,9 +2,9 @@
 #
 #   ./label-loop.sh [--from YYYY-MM-DD]     keep deciding Aliases and labelling until nothing is pending
 #
-# Runs `./run.sh label` over and over. When the Claude subscription's session
-# limit stops a run, sleeps until the reset time the CLI reported (plus a few
-# minutes), then carries on. Any other stop — the lock held by a cron run, the
+# Runs `./run.sh label` over and over, straight on while runs make progress.
+# When the Claude subscription's session limit stops a run, sleeps until the
+# reset time the CLI reported (plus a few minutes), then carries on. Any other stop — the lock held by a cron run, the
 # network down — is retried after a short wait. Output goes to data/label-loop.log.
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -26,6 +26,12 @@ while true; do
      grep -qE "nothing to label|labelled [0-9]+, 0 left" <<<"$out"; then
     say "nothing left to decide or label; done"
     exit 0
+  fi
+
+  # A run that made progress and stopped at its per-run cap: go straight on.
+  if ! grep -q "usage limit" <<<"$out" && grep -qE "(decided|labelled) [1-9][0-9]*," <<<"$out"; then
+    say "per-run cap reached; continuing"
+    continue
   fi
 
   reset=$(grep -oP "resets \K[^(]+" <<<"$out" | tail -1 | xargs)
