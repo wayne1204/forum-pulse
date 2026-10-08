@@ -40,7 +40,7 @@ deploy() {
   rsync -a --delete --exclude "review.*" site/ "$out/"
   # Pages won't _redirect to a loopback address, so a stub page hands off instead.
   cat >"$out/review.html" <<'HTML'
-<!doctype html><meta charset="utf-8"><title>Review Queue</title>
+<!doctype html><meta charset="utf-8"><title>Review Queue</title><link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta http-equiv="refresh" content="0; url=http://127.0.0.1:8765/review.html">
 <p>The Review Queue runs locally: <a href="http://127.0.0.1:8765/review.html">open it</a> (needs <code>./run.sh serve</code>).
 HTML
