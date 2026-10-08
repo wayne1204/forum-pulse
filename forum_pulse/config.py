@@ -51,8 +51,21 @@ LLM_CONTEXT_PUSHES = 3       # pushes shown before each of the user's own
 # A backfill could label hundreds of thousands of Mentions; one run spends at
 # most this much and the next run carries on where it stopped.
 LLM_BUDGET_USD_PER_RUN = 5.00
+# Ambiguous Aliases the user has no rule for are decided by the model (Alias
+# Calls), at most this many per run, newest first.
+ALIAS_CALLS_MAX_PER_RUN = 5000
 
 # --- testing what followed ------------------------------------------------------
 HORIZONS = {"1D": 1, "1W": 5, "1M": 21, "3M": 63}
 MARKET = "MARKET"            # the Market Instrument's code
 BENCHMARK = "TAIEX_TR"       # its price series: TAIEX total-return index
+# Overseas Instruments are judged against their own market, on its own
+# trading days. Prices of each benchmark are stored under its key here.
+OVERSEAS_BENCHMARKS = {"US": ("SP500_TR", "^SP500TR"), "KR": ("KOSPI", "^KS11")}
+EXCHANGE_MARKET = {"NASDAQ": "US", "NYSE": "US", "KRX": "KR"}   # anything else is Taiwan
+
+
+def benchmark_of(exchange: str) -> str:
+    """The price series an Instrument on `exchange` is judged against."""
+    market = EXCHANGE_MARKET.get(exchange)
+    return OVERSEAS_BENCHMARKS[market][0] if market else BENCHMARK

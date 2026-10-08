@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS hits (
     code       TEXT,
     PRIMARY KEY (comment_id, alias)
 );
+-- The model's verdict on an Ambiguous Alias in one Comment, used where the
+-- user has no rule. Kept apart from hits, which are rebuilt; `candidates` is
+-- what it chose from, so a call made before the Aliases changed is asked again.
+CREATE TABLE IF NOT EXISTS alias_calls (
+    comment_id INTEGER NOT NULL,
+    alias      TEXT NOT NULL,
+    code       TEXT NOT NULL,             -- an Instrument, or NOT
+    candidates TEXT NOT NULL,             -- sorted, comma-separated
+    PRIMARY KEY (comment_id, alias)
+);
 CREATE TABLE IF NOT EXISTS mentions (
     forum      TEXT NOT NULL,
     day        TEXT NOT NULL,

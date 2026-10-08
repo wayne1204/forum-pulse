@@ -1,5 +1,5 @@
 {
- "_comment": "Forum slang -> Instrument code. A list means the Alias is Ambiguous and goes to the Review Queue; NOT as a candidate means it may name nothing. maybe_nothing lists official short names that are also everyday words. maybe_nothing was seeded from official names that jieba's dictionary rates as common words (frequency >= 200), plus hand-picked ones.",
+ "_comment": "Forum slang -> Instrument code. A list means the Alias is Ambiguous and goes to the Review Queue; NOT as a candidate means it may name nothing. maybe_nothing lists official short names that are also everyday words. maybe_nothing was seeded from official names that jieba's dictionary rates as common words (frequency >= 200), plus hand-picked ones. overseas lists Instruments listed outside Taiwan the forum talks about; their aliases are added to, not replacing, any Taiwan Instrument of the same name, so a clash becomes Ambiguous.",
  "slang": {
   "GG": "2330",
   "台GG": "2330",
@@ -175,6 +175,7 @@
   "宏觀",
   "宣德",
   "寶雅",
+  "川寶",
   "巨大",
   "幸福",
   "康友",
@@ -227,5 +228,229 @@
   "高林",
   "鳳凰",
   "鼎元"
+ ],
+ "overseas": [
+  {
+   "code": "NVDA",
+   "name": "輝達",
+   "exchange": "NASDAQ",
+   "yf_symbol": "NVDA",
+   "aliases": [
+    "輝達",
+    "老黃",
+    "NVDA",
+    "Nvidia",
+    "NVIDIA",
+    "nvidia"
+   ]
+  },
+  {
+   "code": "AMD",
+   "name": "超微",
+   "exchange": "NASDAQ",
+   "yf_symbol": "AMD",
+   "aliases": [
+    "超微",
+    "蘇媽",
+    "AMD"
+   ]
+  },
+  {
+   "code": "INTC",
+   "name": "英特爾",
+   "exchange": "NASDAQ",
+   "yf_symbol": "INTC",
+   "aliases": [
+    "英特爾",
+    "牙膏廠",
+    "Intel",
+    "INTC"
+   ]
+  },
+  {
+   "code": "MU",
+   "name": "美光",
+   "exchange": "NASDAQ",
+   "yf_symbol": "MU",
+   "aliases": [
+    "美光",
+    "Micron"
+   ]
+  },
+  {
+   "code": "AVGO",
+   "name": "博通",
+   "exchange": "NASDAQ",
+   "yf_symbol": "AVGO",
+   "aliases": [
+    "博通",
+    "Broadcom",
+    "AVGO"
+   ]
+  },
+  {
+   "code": "QCOM",
+   "name": "高通",
+   "exchange": "NASDAQ",
+   "yf_symbol": "QCOM",
+   "aliases": [
+    "高通",
+    "Qualcomm",
+    "QCOM"
+   ]
+  },
+  {
+   "code": "AAPL",
+   "name": "蘋果",
+   "exchange": "NASDAQ",
+   "yf_symbol": "AAPL",
+   "aliases": [
+    "Apple",
+    "AAPL",
+    "蘋果"
+   ]
+  },
+  {
+   "code": "MSFT",
+   "name": "微軟",
+   "exchange": "NASDAQ",
+   "yf_symbol": "MSFT",
+   "aliases": [
+    "微軟",
+    "Microsoft",
+    "MSFT"
+   ]
+  },
+  {
+   "code": "GOOGL",
+   "name": "谷歌",
+   "exchange": "NASDAQ",
+   "yf_symbol": "GOOGL",
+   "aliases": [
+    "谷歌",
+    "估狗",
+    "Google",
+    "GOOG",
+    "GOOGL"
+   ]
+  },
+  {
+   "code": "AMZN",
+   "name": "亞馬遜",
+   "exchange": "NASDAQ",
+   "yf_symbol": "AMZN",
+   "aliases": [
+    "亞馬遜",
+    "Amazon",
+    "AMZN"
+   ]
+  },
+  {
+   "code": "META",
+   "name": "Meta",
+   "exchange": "NASDAQ",
+   "yf_symbol": "META",
+   "aliases": [
+    "臉書",
+    "Facebook",
+    "META"
+   ]
+  },
+  {
+   "code": "TSLA",
+   "name": "特斯拉",
+   "exchange": "NASDAQ",
+   "yf_symbol": "TSLA",
+   "aliases": [
+    "特斯拉",
+    "Tesla",
+    "TSLA"
+   ]
+  },
+  {
+   "code": "SMCI",
+   "name": "美超微",
+   "exchange": "NASDAQ",
+   "yf_symbol": "SMCI",
+   "aliases": [
+    "美超微",
+    "SMCI"
+   ]
+  },
+  {
+   "code": "ASML",
+   "name": "艾司摩爾",
+   "exchange": "NASDAQ",
+   "yf_symbol": "ASML",
+   "aliases": [
+    "艾司摩爾",
+    "ASML"
+   ]
+  },
+  {
+   "code": "ARM",
+   "name": "安謀",
+   "exchange": "NASDAQ",
+   "yf_symbol": "ARM",
+   "aliases": [
+    "安謀"
+   ]
+  },
+  {
+   "code": "PLTR",
+   "name": "Palantir",
+   "exchange": "NASDAQ",
+   "yf_symbol": "PLTR",
+   "aliases": [
+    "Palantir",
+    "PLTR"
+   ]
+  },
+  {
+   "code": "ORCL",
+   "name": "甲骨文",
+   "exchange": "NYSE",
+   "yf_symbol": "ORCL",
+   "aliases": [
+    "甲骨文",
+    "Oracle",
+    "ORCL"
+   ]
+  },
+  {
+   "code": "TSM",
+   "name": "台積電ADR",
+   "exchange": "NYSE",
+   "yf_symbol": "TSM",
+   "aliases": [
+    "台積電ADR",
+    "台積ADR",
+    "TSM"
+   ]
+  },
+  {
+   "code": "005930.KS",
+   "name": "三星電子",
+   "exchange": "KRX",
+   "yf_symbol": "005930.KS",
+   "aliases": [
+    "三星電子",
+    "Samsung",
+    "三星"
+   ]
+  },
+  {
+   "code": "000660.KS",
+   "name": "SK海力士",
+   "exchange": "KRX",
+   "yf_symbol": "000660.KS",
+   "aliases": [
+    "海力士",
+    "SK海力士",
+    "Hynix",
+    "SK Hynix",
+    "力士"
+   ]
+  }
  ]
 }

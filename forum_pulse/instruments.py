@@ -61,19 +61,20 @@ def refresh(con, listed: list[dict] | None = None, slang: dict | None = None) ->
     the slang table. The user's alias_rules are left alone."""
     listed = listed if listed is not None else fetch_listed()
     slang = slang if slang is not None else load_slang()
+    overseas = slang.get("overseas", [])
     con.execute("DELETE FROM instruments")
     con.execute("DELETE FROM aliases")
     con.executemany("INSERT OR REPLACE INTO instruments VALUES(:code,:name,:kind,:exchange,:yf_symbol)",
                     listed)
+    con.executemany("INSERT OR REPLACE INTO instruments VALUES(:code,:name,'stock',:exchange,:yf_symbol)",
+                    overseas)
     con.execute("INSERT INTO instruments VALUES(?, '大盤', 'market', '-', NULL)", (config.MARKET,))
-    codes = {r["code"] for r in listed} | {config.MARKET}
+    codes = {r["code"] for r in listed} | {r["code"] for r in overseas} | {config.MARKET}
     maybe_nothing = set(slang.get("maybe_nothing", []))
     rows = set()
     for r in listed:
         rows.add((r["code"], r["code"], "official"))
         rows.add((r["name"], r["code"], "official"))
-        if r["name"] in maybe_nothing:
-            rows.add((r["name"], NOT, "official"))
     for alias, target in slang.get("slang", {}).items():
         targets = target if isinstance(target, list) else [target]
         # A slang entry speaks for its Alias: it replaces whatever the official
@@ -82,6 +83,14 @@ def refresh(con, listed: list[dict] | None = None, slang: dict | None = None) ->
         for t in targets:
             if t == NOT or t in codes:
                 rows.add((alias, t, "slang"))
+    # An overseas Alias joins whatever Taiwan Instrument shares it (三星 is
+    # both 5007 and Samsung), leaving the model to tell them apart.
+    for r in overseas:
+        for alias in {r["name"], *r["aliases"]}:
+            rows.add((alias, r["code"], "overseas"))
+    # A slang entry already says whether its Alias may name nothing.
+    for alias in (maybe_nothing & {x[0] for x in rows}) - set(slang.get("slang", {})):
+        rows.add((alias, NOT, "official"))
     con.executemany("INSERT OR IGNORE INTO aliases VALUES(?,?,?)", sorted(rows))
     return len(listed)
 
@@ -168,10 +177,11 @@ class Matcher:
 
 
 def resolve(alias: str, cands: set[str], text: str, comment_id: int,
-            rules: dict[str, list]) -> str | None:
+            rules: dict[str, list], calls: dict | None = None) -> str | None:
     """The code this Alias means in this Comment: an Instrument, NOT, or None
-    when it is ambiguous and the user has not decided yet. The user's rules win
-    over everything, the most specific first."""
+    when it is ambiguous and nobody has decided yet. The user's rules win over
+    everything, the most specific first; then an Alias Call, if it was made
+    from the same candidates."""
     rs = rules.get(alias, [])
     for r in rs:
         if r["scope"] == "comment" and r["comment_id"] == comment_id:
@@ -182,7 +192,22 @@ def resolve(alias: str, cands: set[str], text: str, comment_id: int,
     for r in rs:
         if r["scope"] == "always":
             return r["code"]
-    return next(iter(cands)) if len(cands) == 1 else None
+    if len(cands) == 1:
+        return next(iter(cands))
+    call = (calls or {}).get((comment_id, alias))
+    if call and call[1] == candidates_key(cands):
+        return call[0]
+    return None
+
+
+def candidates_key(cands: set[str]) -> str:
+    return ",".join(sorted(cands))
+
+
+def load_calls(con) -> dict[tuple[int, str], tuple[str, str]]:
+    """{(comment_id, alias): (code, candidates)}: the model's Alias Calls."""
+    return {(r["comment_id"], r["alias"]): (r["code"], r["candidates"])
+            for r in con.execute("SELECT * FROM alias_calls")}
 
 
 def load_rules(con) -> dict[str, list]:

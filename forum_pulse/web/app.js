@@ -81,7 +81,7 @@ async function dayView(day) {
         <th class="n">Net</th><th>Group</th>${["1D", "1W", "1M", "3M"].map(h => `<th class="n" title="Excess Return from Entry">${h}</th>`).join("")}</tr></thead>
       <tbody>${d.rows.map((r, k) => dayRow(r, k)).join("") || `<tr><td colspan="11" class="empty">No Mentions.</td></tr>`}</tbody>
     </table></div>
-    <p class="note">Excess Return = Instrument return from the next trading day's open, minus TAIEX total return over the same Horizon (blank until enough days have passed).
+    <p class="note">Excess Return = Instrument return from the next trading day's open, minus TAIEX total return over the same Horizon (US stocks: S&P 500 total return; Korean: KOSPI, on their own trading days). Blank until enough days have passed.
       Click a row for its comments.</p>`;
   const go = dd => { location.hash = "#/day/" + dd; };
   $("#prev").onclick = () => go(days[i - 1]);
@@ -210,7 +210,7 @@ async function backtestView() {
   const recent = b.signals.slice().sort((x, y) => y.day.localeCompare(x.day)).slice(0, 300);
   $("#view").innerHTML = `
     <h1>Backtest</h1>
-    <p class="sub">Mean Excess Return from Entry (next trading day's open) vs TAIEX total return, by Stance Group.
+    <p class="sub">Mean Excess Return from Entry (next trading day's open) vs TAIEX total return (overseas stocks: their own market's index), by Stance Group.
       Bullish ≥ +${cfg.cutoff}, Bearish ≤ −${cfg.cutoff}, needs ≥ ${cfg.min_decided} bullish-or-bearish Mentions.</p>
     <h2>Top Mentioned <span class="muted">— the ${cfg.top_n} most-mentioned Instruments each day</span></h2>${table("Top Mentioned")}
     <h2>Buzz Spike <span class="muted">— ≥ ${cfg.spike_ratio}× its 20-trading-day average and ≥ ${cfg.spike_min} Mentions</span></h2>${table("Buzz Spike")}

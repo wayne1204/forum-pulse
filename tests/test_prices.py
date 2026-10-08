@@ -57,6 +57,10 @@ def test_refresh_stores_the_benchmark_and_stale_instruments(con, monkeypatch):
                         {"2026-10-01": 20000.0, "2026-10-02": 20400.0})
 
     def yf(symbols, start, end):
+        if symbols == ["^SP500TR"]:
+            return {"^SP500TR": frame({"2026-10-01": (50.0, 51.0)})}
+        if symbols == ["^KS11"]:
+            return {}
         if symbols == ["^TWII"]:
             return {"^TWII": frame({"2026-10-01": (100.0, 100.0), "2026-10-02": (101.0, 102.0),
                                     "2026-10-03": (1.0, 1.0)})}
@@ -70,6 +74,8 @@ def test_refresh_stores_the_benchmark_and_stale_instruments(con, monkeypatch):
     assert "2026-10-03" not in bench                                           # no TR close that day
     assert prices.series(con, "2330") == {"2026-10-01": (500.0, 510.0)}
     assert prices.series(con, "2603") == {}
+    assert prices.series(con, "SP500_TR") == {"2026-10-01": (50.0, 51.0)}      # overseas benchmarks
+    assert prices.series(con, "KOSPI") == {}
 
     prices.refresh(con, set(), date(2025, 7, 1), log=lambda *_: None)
     assert starts == [date(2025, 7, 1), date(2026, 10, 2) - timedelta(days=31)]   # TWSE revises late

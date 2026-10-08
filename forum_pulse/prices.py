@@ -1,5 +1,6 @@
 """Daily open/close, dividend-adjusted, for the Instruments that were Signals,
-plus the benchmark: the TAIEX total-return index.
+plus the benchmarks: the TAIEX total-return index, and for Overseas
+Instruments their own market's index.
 
 The total-return index (TWSE MFI94U) is published as a close only. Its open is
 taken as the price index's open scaled by that day's total-return/price ratio,
@@ -81,6 +82,14 @@ def refresh(con, codes: set[str], start: date, log=print) -> None:
                 rows.append((config.BENCHMARK, d, r["Open"] * tr[d] / r["Close"], tr[d]))
     con.executemany("INSERT OR REPLACE INTO prices VALUES(?,?,?,?)", rows)
     log(f"  prices: benchmark {len(rows)} days")
+    for name, symbol in config.OVERSEAS_BENCHMARKS.values():
+        last = _last_day(con, name)
+        o_start = start if last is None else date.fromisoformat(last) - timedelta(days=31)
+        df = _yf([symbol], o_start, end).get(symbol)
+        if df is not None:
+            con.executemany("INSERT OR REPLACE INTO prices VALUES(?,?,?,?)",
+                            [(name, ts.date().isoformat(), float(r["Open"]), float(r["Close"]))
+                             for ts, r in df.iterrows()])
 
     sym = {r["code"]: r["yf_symbol"] for r in con.execute(
         "SELECT code, yf_symbol FROM instruments WHERE yf_symbol IS NOT NULL")}

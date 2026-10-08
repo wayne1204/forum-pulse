@@ -30,7 +30,9 @@ def offline(monkeypatch):
     """The daily run with the network cut: the listing, PTT and prices are canned."""
     refresh = instruments.refresh
     monkeypatch.setattr(instruments, "refresh", lambda con: refresh(con, LISTED, SLANG))
-    calls = {"crawl": [], "label": []}
+    calls = {"crawl": [], "label": [], "decide": []}
+    monkeypatch.setattr(pipeline.alias_calls, "decide",
+                        lambda con, log: calls["decide"].append(True) or {"quota": False})
 
     def crawl(con, since, log):
         calls["crawl"].append(since)
@@ -48,7 +50,7 @@ def offline(monkeypatch):
 def test_daily_crawls_measures_and_publishes(offline):
     pipeline.daily(budget=1.5, log=quiet)
     assert offline["crawl"] == [config.BACKFILL_START]
-    assert offline["label"] == [1.5]
+    assert offline["label"] == [1.5] and offline["decide"] == [True]
     with db.session() as con:
         assert db.get_meta(con, "backfill_done") == "1"
         assert db.get_meta(con, "instruments_at")
@@ -81,7 +83,7 @@ def test_after_the_backfill_only_recent_posts_are_crawled(offline):
     pipeline.daily(label=False, log=quiet)
     recent = date.today() - timedelta(days=config.RECRAWL_DAYS)
     assert offline["crawl"] == [config.BACKFILL_START, min(DAY.date(), recent)]
-    assert offline["label"] == []
+    assert offline["label"] == [] and offline["decide"] == []      # no model at all
 
 
 def test_rebuild_applies_review_queue_rules(world):
@@ -97,14 +99,23 @@ def test_rebuild_applies_review_queue_rules(world):
 def test_label_only_sets_the_range_then_republishes(world, monkeypatch):
     for k in ("LLM_LABEL_FROM", "LLM_CLI_MAX_PER_RUN", "LLM_WORKERS"):
         monkeypatch.setattr(config, k, getattr(config, k))
-    labelled = []
-    monkeypatch.setattr(pipeline.stance, "label", lambda con, log: labelled.append(True))
+    order = []
+    monkeypatch.setattr(pipeline.alias_calls, "decide", lambda con, log: order.append("decide") or {"quota": False})
+    monkeypatch.setattr(pipeline.stance, "label", lambda con, log: order.append("label"))
     pipeline.label_only("2026-09-01", 0, 2, log=quiet)
-    assert labelled == [True]
+    assert order == ["decide", "label"]                 # Mentions settle before they are labelled
     assert config.LLM_LABEL_FROM == date(2026, 9, 1)
     assert config.LLM_CLI_MAX_PER_RUN == 10**9       # 0 = no cap
     assert config.LLM_WORKERS == 2
     assert (config.SITE_DIR / "data" / "meta.js").exists()
+
+
+def test_the_usage_limit_in_alias_calls_skips_labelling(world, monkeypatch):
+    order = []
+    monkeypatch.setattr(pipeline.alias_calls, "decide", lambda con, log: order.append("decide") or {"quota": True})
+    monkeypatch.setattr(pipeline.stance, "label", lambda con, log: order.append("label"))
+    pipeline.label_only(log=quiet)
+    assert order == ["decide"]
 
 
 def test_featured_codes_are_the_tables_and_the_spikes():

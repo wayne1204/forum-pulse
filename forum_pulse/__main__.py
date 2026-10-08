@@ -10,7 +10,7 @@ def main():
     d = sub.add_parser("daily", help="crawl, match, label, price, backtest, publish")
     d.add_argument("--no-label", action="store_true", help="skip the model (no API spend)")
     d.add_argument("--budget", type=float, help="USD the model may spend this run")
-    lb = sub.add_parser("label", help="label Stances only, then republish (no crawl)")
+    lb = sub.add_parser("label", help="make Alias Calls and label Stances, then republish (no crawl)")
     lb.add_argument("--from", dest="since", help="first Forum Day to label, YYYY-MM-DD")
     lb.add_argument("--max", type=int, help="Mentions to label this run (0 = no cap)")
     lb.add_argument("--workers", type=int, help="calls to Claude at the same time (default 8)")

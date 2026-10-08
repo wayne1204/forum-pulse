@@ -185,3 +185,16 @@ def test_excess_return_and_market_raw_return():
     by = {r["kind"]: r for r in rows}
     assert by["Top Mentioned"]["1D"] == pytest.approx(0.10 - 0.01)
     assert by["Market"]["1D"] == pytest.approx(0.01)
+
+
+def test_an_overseas_instrument_is_judged_on_its_own_market_and_days():
+    tw = {"2026-10-01": (100.0, 100.0), "2026-10-02": (100.0, 101.0)}
+    us = {"2026-10-01": (10.0, 10.0), "2026-10-02": (10.0, 10.2)}       # US Oct 2 opens after Taipei's Oct 2
+    nvda = {"2026-10-02": (200.0, 210.0)}
+    sig = {"2026-10-01": {"top": {"NVDA"}, "spike": set()}}
+    rows = backtest.run(sig, {}, lambda c: nvda, tw, lambda c: us)
+    [row] = rows
+    assert row["entry"] == "2026-10-02"
+    assert row["1D"] == pytest.approx(0.05 - 0.02)
+    assert config.benchmark_of("NASDAQ") == "SP500_TR" and config.benchmark_of("KRX") == "KOSPI"
+    assert config.benchmark_of("TPEx") == config.BENCHMARK

@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from . import config
-from .instruments import NOT, Matcher, load_rules, resolve
+from .instruments import NOT, Matcher, load_calls, load_rules, resolve
 
 _AUTHOR_STANCE = re.compile(r"(多|空)\s*$")
 
@@ -15,7 +15,7 @@ _AUTHOR_STANCE = re.compile(r"(多|空)\s*$")
 def match_comments(con, log=print) -> int:
     """Look for Aliases in every Comment not yet searched."""
     matcher = Matcher.from_db(con)
-    rules = load_rules(con)
+    rules, calls = load_rules(con), load_calls(con)
     todo = con.execute("SELECT c.id, c.text, p.title, c.seq FROM comments c "
                        "JOIN posts p USING(post_id) WHERE c.matched=0").fetchall()
     n = 0
@@ -25,7 +25,7 @@ def match_comments(con, log=print) -> int:
         found = matcher.find(text)
         con.execute("DELETE FROM hits WHERE comment_id=?", (r["id"],))
         con.executemany("INSERT INTO hits VALUES(?,?,?)",
-                        [(r["id"], a, resolve(a, c, text, r["id"], rules)) for a, c in found.items()])
+                        [(r["id"], a, resolve(a, c, text, r["id"], rules, calls)) for a, c in found.items()])
         con.execute("UPDATE comments SET matched=1 WHERE id=?", (r["id"],))
         n += 1
         if n % 50000 == 0:
@@ -35,9 +35,10 @@ def match_comments(con, log=print) -> int:
 
 
 def reresolve(con) -> None:
-    """Apply the user's current rules to every hit again, after a decision in
-    the Review Queue. Aliases themselves are not searched for again."""
-    rules = load_rules(con)
+    """Apply the user's current rules and the Alias Calls to every hit again,
+    after a decision in the Review Queue. Aliases themselves are not searched
+    for again."""
+    rules, calls = load_rules(con), load_calls(con)
     cands: dict[str, set[str]] = defaultdict(set)
     for r in con.execute("SELECT alias, code FROM aliases"):
         cands[r["alias"]].add(r["code"])
@@ -45,7 +46,7 @@ def reresolve(con) -> None:
                        "JOIN comments c ON c.id=h.comment_id JOIN posts p USING(post_id)").fetchall()
     for r in rows:
         text = f"{r['title']}\n{r['text']}" if r["seq"] == 0 else r["text"]
-        code = resolve(r["alias"], cands.get(r["alias"], set()), text, r["comment_id"], rules)
+        code = resolve(r["alias"], cands.get(r["alias"], set()), text, r["comment_id"], rules, calls)
         if code != r["code"]:
             con.execute("UPDATE hits SET code=? WHERE comment_id=? AND alias=?",
                         (code, r["comment_id"], r["alias"]))

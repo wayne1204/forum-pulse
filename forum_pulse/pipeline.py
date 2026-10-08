@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from datetime import date, datetime, timedelta
 
-from . import backtest, config, db, instruments, measure, prices, ptt, site, stance
+from . import alias_calls, backtest, config, db, instruments, measure, prices, ptt, site, stance
 
 
 def _log(msg):
@@ -39,7 +39,12 @@ def _derive_and_publish(con, fetch_prices: bool, log=_log):
         con.commit()
     tallies = measure.stance_tally(con)
     bench = prices.series(con, config.BENCHMARK)
-    rows = backtest.run(sig, tallies, lambda c: prices.series(con, config.BENCHMARK if c == config.MARKET else c), bench)
+    benches = {config.BENCHMARK: bench}
+    for name, _ in config.OVERSEAS_BENCHMARKS.values():
+        benches[name] = prices.series(con, name)
+    exchange = dict(con.execute("SELECT code, exchange FROM instruments").fetchall())
+    rows = backtest.run(sig, tallies, lambda c: prices.series(con, config.BENCHMARK if c == config.MARKET else c),
+                        bench, lambda c: benches[config.benchmark_of(exchange.get(c, ""))])
     log(f"backtest: {len(rows)} Signal rows")
     site.build(con, counts, sig, tallies, rows, log=log)
 
@@ -65,10 +70,12 @@ def daily(label: bool = True, budget: float | None = None, log=_log) -> None:
 
         n = measure.match_comments(con, log=log)
         log(f"match: {n} Comments searched")
+        quota = label and alias_calls.decide(con, log=log)["quota"]
+        con.commit()
         log(f"mentions: {measure.build_mentions(con)}")
         log(f"author stances: {measure.author_stances(con)}")
         con.commit()
-        if label:
+        if label and not quota:
             stance.label(con, budget=budget, log=log)
             con.commit()
         _derive_and_publish(con, fetch_prices=True, log=log)
@@ -88,7 +95,8 @@ def rebuild(log=_log) -> None:
 
 def label_only(since: str | None = None, max_mentions: int | None = None,
                workers: int | None = None, log=_log) -> None:
-    """Label a chosen range of Forum Days, then republish. No crawl, no prices."""
+    """Make Alias Calls, then label a chosen range of Forum Days, then
+    republish. No crawl, no prices."""
     if workers:
         config.LLM_WORKERS = workers
     if since:
@@ -97,7 +105,12 @@ def label_only(since: str | None = None, max_mentions: int | None = None,
         config.LLM_CLI_MAX_PER_RUN = max_mentions or 10**9
     t0 = time.time()
     with db.session() as con:
-        stance.label(con, log=log)
+        quota = alias_calls.decide(con, log=log)["quota"]
+        measure.build_mentions(con)
+        measure.author_stances(con)
         con.commit()
+        if not quota:
+            stance.label(con, log=log)
+            con.commit()
         _derive_and_publish(con, fetch_prices=False, log=log)
     log(f"done in {time.time() - t0:.0f}s")

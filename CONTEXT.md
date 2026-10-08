@@ -33,6 +33,11 @@ Anything the Forum talks about as a thing to trade — a listed or OTC stock, an
 ETF, the index, or an index future.
 _Avoid_: ticker, symbol, stock (a stock is only one kind of Instrument)
 
+**Overseas Instrument**:
+A stock listed outside Taiwan that the Forum talks about (輝達, 美光, 三星電子,
+海力士). Its Excess Return is against its own market's index, counted on its
+own trading days.
+
 **Market**:
 The one Instrument that stands for the whole Taiwan market — 大盤, 加權, 台指期
 and 小台 are all Aliases of it. Judged by its own return, since its Excess
@@ -46,18 +51,23 @@ or forum slang like GG or 發哥.
 _Avoid_: keyword, nickname
 
 **Ambiguous Alias**:
-An Alias that could name more than one Instrument (長榮), or an Instrument or
-nothing at all (統一, 創意). It is never resolved by guessing: the user decides,
-once for good, by context words, or one Comment at a time.
+An Alias that could name more than one Instrument (長榮, 三星), or an Instrument
+or nothing at all (統一, 創意, 川寶). The user decides once for good, by context
+words, or one Comment at a time; where the user has not, an Alias Call does.
+
+**Alias Call**:
+The model's verdict on what an Ambiguous Alias means in one Comment, made from
+that Comment and its neighbours. Any rule of the user's overrides it.
+_Avoid_: guess, auto-resolve
 
 **Not an Instrument**:
-The user's verdict that an Alias, in some or all Comments, is ordinary text and
-names nothing.
+The verdict — the user's, or an Alias Call's — that an Alias, in some or all
+Comments, is ordinary text and names nothing.
 _Avoid_: false positive, ignored
 
 **Review Queue**:
-The Comments holding an Ambiguous Alias nobody has decided yet. They count
-toward no Mention until the user resolves them.
+The Comments holding an Ambiguous Alias nobody has decided yet — no rule and no
+Alias Call so far. They count toward no Mention until one is made.
 
 ### Measuring the forum
 
@@ -121,5 +131,6 @@ _Avoid_: holding period, window
 
 **Excess Return**:
 An Instrument's dividend-inclusive return over a Horizon minus the Market's
-total return over the same Horizon. The figure every result is judged by.
+total return over the same Horizon (for an Overseas Instrument, its own
+market's index). The figure every result is judged by.
 _Avoid_: alpha, outperformance

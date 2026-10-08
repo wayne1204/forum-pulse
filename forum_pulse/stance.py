@@ -92,27 +92,26 @@ class QuotaExhausted(Exception):
     """The Claude subscription's usage limit is reached; stop the run."""
 
 
-_SCHEMA = json.dumps(Labels.model_json_schema())
-
-
-def _api_caller():
-    """Anthropic API: billed per token. Returns call(prompt) -> (labels, USD)."""
+def _api_caller(system: str = SYSTEM, out: type[BaseModel] = Labels):
+    """Anthropic API: billed per token. Returns call(prompt) -> (items, USD),
+    `items` being the `out` model's list of answers."""
     import anthropic
     client = anthropic.Anthropic()
     client.models.retrieve(config.LLM_MODEL)     # fail fast without credentials
 
     def call(prompt):
         resp = client.messages.parse(
-            model=config.LLM_MODEL, max_tokens=4000, system=SYSTEM,
-            messages=[{"role": "user", "content": prompt}], output_format=Labels)
+            model=config.LLM_MODEL, max_tokens=4000, system=system,
+            messages=[{"role": "user", "content": prompt}], output_format=out)
         cost = resp.usage.input_tokens * config.LLM_PRICE_IN + resp.usage.output_tokens * config.LLM_PRICE_OUT
         return ([] if resp.parsed_output is None else resp.parsed_output.items), cost
     return call
 
 
-def _cli_caller():
+def _cli_caller(system: str = SYSTEM, out: type[BaseModel] = Labels):
     """Claude Code headless (`claude -p`): runs on the user's Claude
     subscription, so there is no API bill — only subscription usage."""
+    schema = json.dumps(out.model_json_schema())
     exe = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
     if not os.path.exists(exe):
         raise FileNotFoundError("claude CLI not found")
@@ -122,18 +121,18 @@ def _cli_caller():
     env = {**os.environ, "MAX_THINKING_TOKENS": "0", "DISABLE_PROMPT_CACHING": "1"}
 
     def call(prompt):
-        out = subprocess.run(
+        res = subprocess.run(
             [exe, "-p", "--model", config.LLM_CLI_MODEL, "--tools", "", "--no-session-persistence",
-             "--system-prompt", SYSTEM, "--output-format", "json", "--json-schema", _SCHEMA],
+             "--system-prompt", system, "--output-format", "json", "--json-schema", schema],
             input=prompt, capture_output=True, text=True, timeout=300, cwd=config.DATA_DIR, env=env)
-        if out.returncode != 0 and '"api_error_status":429' not in out.stdout:
-            raise RuntimeError((out.stderr or out.stdout)[-300:])
-        d = json.loads(out.stdout or "{}")
+        if res.returncode != 0 and '"api_error_status":429' not in res.stdout:
+            raise RuntimeError((res.stderr or res.stdout)[-300:])
+        d = json.loads(res.stdout or "{}")
         if d.get("api_error_status") == 429:
             raise QuotaExhausted(str(d.get("result"))[:200])
         if d.get("is_error") or not d.get("structured_output"):
             raise RuntimeError(str(d.get("result"))[:300])
-        return Labels.model_validate(d["structured_output"]).items, 0.0
+        return out.model_validate(d["structured_output"]).items, 0.0
     return call
 
 

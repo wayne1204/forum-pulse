@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-#   ./label-loop.sh [--from YYYY-MM-DD]     keep labelling until nothing is pending
+#   ./label-loop.sh [--from YYYY-MM-DD]     keep deciding Aliases and labelling until nothing is pending
 #
 # Runs `./run.sh label` over and over. When the Claude subscription's session
 # limit stops a run, sleeps until the reset time the CLI reported (plus a few
@@ -22,8 +22,9 @@ while true; do
   ./run.sh label --max 10000 "$@" >>"$LOG" 2>&1
   out=$(tail -c +"$((start + 1))" "$LOG")
 
-  if grep -qE "nothing to label|labelled [0-9]+, 0 left" <<<"$out"; then
-    say "nothing left to label; done"
+  if grep -qE "aliases: (nothing to decide|decided [0-9]+, 0 left)" <<<"$out" &&
+     grep -qE "nothing to label|labelled [0-9]+, 0 left" <<<"$out"; then
+    say "nothing left to decide or label; done"
     exit 0
   fi
 
