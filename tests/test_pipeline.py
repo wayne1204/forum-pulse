@@ -3,29 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from forum_pulse import backtest, config, db, instruments, measure, ptt
+from conftest import add_post
+from forum_pulse import backtest, config, measure, ptt
 from forum_pulse.instruments import NOT, Matcher, resolve
 
 FIX = Path(__file__).parent / "fixtures"
 TZ = config.TZ
-
-LISTED = [
-    {"code": "2330", "name": "台積電", "kind": "stock", "exchange": "TWSE", "yf_symbol": "2330.TW"},
-    {"code": "2603", "name": "長榮", "kind": "stock", "exchange": "TWSE", "yf_symbol": "2603.TW"},
-    {"code": "2618", "name": "長榮航", "kind": "stock", "exchange": "TWSE", "yf_symbol": "2618.TW"},
-    {"code": "2489", "name": "瑞軒", "kind": "stock", "exchange": "TWSE", "yf_symbol": "2489.TW"},
-    {"code": "1216", "name": "統一", "kind": "stock", "exchange": "TWSE", "yf_symbol": "1216.TW"},
-    {"code": "00631L", "name": "元大台灣50正2", "kind": "etf", "exchange": "TWSE", "yf_symbol": "00631L.TW"},
-]
-SLANG = {"slang": {"GG": "2330", "長榮": ["2603", "2618"], "大盤": "MARKET", "正2": "00631L"},
-         "maybe_nothing": ["統一"]}
-
-
-@pytest.fixture
-def con():
-    c = db.connect(":memory:")
-    instruments.refresh(c, LISTED, SLANG)
-    return c
 
 
 # --- PTT parsing ----------------------------------------------------------------
@@ -117,14 +100,9 @@ def test_rules_resolve_most_specific_first():
 
 # --- Mentions and Signals -------------------------------------------------------------
 
-def _post(con, pid, title, author, when, pushes):
-    ptt.store_post(con, {"post_id": pid, "title": title, "author": author, "posted_at": when,
-                         "body": "內文", "pushes": [{"tag": "推", "user": u, "text": t, "at": when} for u, t in pushes]})
-
-
 def test_a_user_is_one_mention_per_instrument_per_day(con):
     when = datetime(2026, 10, 2, 10, tzinfo=TZ)
-    _post(con, "M.1790920910.A.717", "[閒聊] 盤中", "host", when,
+    add_post(con, "M.1790920910.A.717", "[閒聊] 盤中", "host", when,
           [("u1", "GG 噴"), ("u1", "台積電 噴噴噴"), ("u1", "2330 還要噴"), ("u2", "GG 倒"), ("u3", "長榮噴")])
     measure.match_comments(con, log=lambda *_: None)
     measure.build_mentions(con)
@@ -135,8 +113,8 @@ def test_a_user_is_one_mention_per_instrument_per_day(con):
 
 def test_author_stance_from_a_target_post_title(con):
     when = datetime(2026, 10, 2, 20, tzinfo=TZ)
-    _post(con, "M.1790943882.A.49A", "[標的] 2330 台積電 空", "bear", when, [])
-    _post(con, "M.1790943883.A.49B", "Re: [標的] 2330 台積電 空", "other", when, [])
+    add_post(con, "M.1790943882.A.49A", "[標的] 2330 台積電 空", "bear", when, [])
+    add_post(con, "M.1790943883.A.49B", "Re: [標的] 2330 台積電 空", "other", when, [])
     measure.match_comments(con, log=lambda *_: None)
     measure.build_mentions(con)
     assert measure.author_stances(con) >= 1
