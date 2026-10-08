@@ -28,8 +28,8 @@ fi
 # Cron runs without the login shell's environment; pick up the API key here.
 [ -f .env ] && set -a && . ./.env && set +a
 
-# Publish site/ to Cloudflare Pages, minus the Review Queue: it needs server.py and
-# the local DB, so its links point back at `serve` on this machine instead.
+# Publish site/ to Cloudflare Pages without the Review Queue: it needs server.py and the
+# local DB, so the live site drops the page and hides its nav link and dashboard tile.
 # Skipped until CLOUDFLARE_API_TOKEN is in .env (or `wrangler login` was run, for manual use).
 deploy() {
   local wrangler
@@ -37,13 +37,8 @@ deploy() {
   if [ -z "$wrangler" ]; then echo "deploy: wrangler not found (npm install -g wrangler)" >&2; return 1; fi
   local out=data/deploy
   mkdir -p "$out"
-  rsync -a --delete --exclude "review.*" site/ "$out/"
-  # Pages won't _redirect to a loopback address, so a stub page hands off instead.
-  cat >"$out/review.html" <<'HTML'
-<!doctype html><meta charset="utf-8"><title>Review Queue</title><link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta http-equiv="refresh" content="0; url=http://127.0.0.1:8765/review.html">
-<p>The Review Queue runs locally: <a href="http://127.0.0.1:8765/review.html">open it</a> (needs <code>./run.sh serve</code>).
-HTML
+  rsync -a --delete --delete-excluded --exclude "review.*" site/ "$out/"
+  sed -i 's|</head>|<style>a[href="review.html"], .tile:has(a[href="review.html"]) { display: none; }</style>\n&|' "$out/index.html"
   # wrangler is a node script; cron's PATH has no node, so put its own bin dir first.
   PATH="$(dirname "$wrangler"):$PATH" "$wrangler" pages deploy "$out" \
     --project-name "${CF_PAGES_PROJECT:-forum-pulse}" --branch main --commit-dirty=true

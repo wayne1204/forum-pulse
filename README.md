@@ -30,7 +30,7 @@ Review Queue needs `serve`.
    `CLOUDFLARE_API_TOKEN` (Account → Cloudflare Pages → Edit) and
    `CLOUDFLARE_ACCOUNT_ID` are in `.env`; a failed run leaves the live site as
    it was. Needs `wrangler` (`npm install -g wrangler`). The Review Queue is not
-   published: its links on the live site hand off to a local `serve`.
+   published, and its link and tile are hidden on the live site.
 
 ## How it works
 
