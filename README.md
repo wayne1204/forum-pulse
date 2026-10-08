@@ -40,7 +40,7 @@ Review Queue needs `serve`.
 | Match | `instruments.py` | TWSE/TPEx listings (stocks, ETFs, TDRs) + `slang.json`. Numbers that look like dates, times, prices or ranges are not codes. |
 | Review | `server.py`, `web/review.*` | Ambiguous Aliases (長榮, 統一, 世界…) count for nothing until you decide: always, by context word, or one Comment. |
 | Mentions | `measure.py` | One per user × Instrument × Forum Day. |
-| Stance | `stance.py` | Claude Haiku 4.5 (via `claude -p`, or the API) labels Mentions in Signals and of the Market, 25 per request, seeing the Post title and the 3 pushes before each line. 標的 Posts ending 多/空 give an Author Stance, which overrides the model and is used to check it. A run is capped (2,000 Mentions on the CLI, $5 on the API); the next run continues. |
+| Stance | `stance.py` | Claude Haiku 4.5 (via `claude -p`, or the API) labels every Mention, 25 per request, seeing the Post title and the 3 pushes before each line. 標的 Posts ending 多/空 give an Author Stance, which overrides the model and is used to check it. A run is capped (2,000 Mentions on the CLI, $5 on the API); the next run continues. |
 | Prices | `prices.py` | yfinance dividend-adjusted open/close; benchmark is the TAIEX total-return index (TWSE MFI94U). |
 | Backtest | `backtest.py` | Entry = next trading day's open; 1D/1W/1M/3M = 1/5/21/63 trading days; Excess Return vs TAIEX TR. The Market is judged on its raw return. |
 | Site | `site.py`, `web/` | One JS data file per Forum Day and per Instrument. |

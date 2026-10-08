@@ -42,9 +42,14 @@ def _stances(con):
             for r in con.execute("SELECT * FROM stances")}
 
 
-def test_pending_is_signal_and_market_mentions_without_a_current_label(forum):
+def test_pending_is_every_mention_without_a_current_label(forum):
     got = {(m["user"], m["code"]) for m in stance._pending(forum)}
     assert got == {("bull", "2330"), ("u1", "2330"), ("u2", "MARKET")}
+
+
+def test_a_mention_outside_any_signal_is_still_pending(forum, monkeypatch):
+    monkeypatch.setattr(config, "TOP_N", 0)       # 2330 is neither Top Mentioned nor a Buzz Spike
+    assert ("u1", "2330") in {(m["user"], m["code"]) for m in stance._pending(forum)}
 
 
 def test_days_before_label_from_are_never_pending(forum, monkeypatch):

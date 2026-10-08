@@ -1,6 +1,6 @@
 """Labelling each Mention's Stance with Claude, through Claude Code headless
-(subscription, the default) or the API. Only Signals and the Market are
-labelled: they are what the backtest and the Day page read."""
+(subscription, the default) or the API. Every Mention is labelled, not only
+Signals: the Day page shows each comment's Stance."""
 from __future__ import annotations
 
 import json
@@ -16,7 +16,6 @@ from typing import Literal
 from pydantic import BaseModel
 
 from . import config
-from .measure import daily_counts, signals
 
 SYSTEM = """You read comments from PTT Stock (批踢踢股票板), Taiwan's largest retail stock forum, and judge each commenter's STANCE on one named instrument.
 
@@ -43,10 +42,7 @@ class Labels(BaseModel):
 
 
 def _pending(con) -> list[dict]:
-    """Mentions in a Signal (or of the Market) without a current label, newest
-    Forum Day first."""
-    sig = signals(daily_counts(con))
-    wanted = {(d, c) for d, s in sig.items() for c in s["top"] | s["spike"]}
+    """Mentions without a current label, newest Forum Day first."""
     rows = con.execute("""
         SELECT m.forum, m.day, m.user, m.code, m.n_comments, s.source, s.n_comments s_n, s.model_stance
         FROM mentions m LEFT JOIN stances s USING(forum, day, user, code)
@@ -55,8 +51,6 @@ def _pending(con) -> list[dict]:
     since = config.LLM_LABEL_FROM.isoformat()
     for r in rows:
         if r["day"] < since:
-            continue
-        if r["code"] != config.MARKET and (r["day"], r["code"]) not in wanted:
             continue
         if r["source"] == "author" and r["model_stance"] is not None:
             continue
