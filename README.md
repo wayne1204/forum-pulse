@@ -5,10 +5,11 @@ that attention was followed by out- or under-performance. Vocabulary is in
 [CONTEXT.md](CONTEXT.md).
 
 ```
-./run.sh daily              crawl → match Aliases → label Stances → prices → backtest → site
+./run.sh daily              crawl → match Aliases → label Stances → prices → backtest → site → deploy
 ./run.sh daily --no-label   same, without calling Claude
 ./run.sh serve              dashboard + Review Queue at http://127.0.0.1:8765
 ./run.sh rebuild            re-apply Review Queue rules and republish (nothing fetched)
+./run.sh deploy             upload site/ to Cloudflare Pages
 ./run.sh test
 ```
 
@@ -24,6 +25,12 @@ Review Queue needs `serve`.
    `config.py` and put `ANTHROPIC_API_KEY` in `.env`.
 2. Cron runs `daily` at 15:30 and 23:50 Taipei time (see `crontab -l`). Runs
    take a lock, so overlapping firings skip themselves.
+3. The dashboard is published to Cloudflare Pages at
+   <https://forum-pulse.pages.dev>. `daily` deploys after a successful run once
+   `CLOUDFLARE_API_TOKEN` (Account → Cloudflare Pages → Edit) and
+   `CLOUDFLARE_ACCOUNT_ID` are in `.env`; a failed run leaves the live site as
+   it was. Needs `wrangler` (`npm install -g wrangler`). The Review Queue is not
+   published: its links on the live site hand off to a local `serve`.
 
 ## How it works
 

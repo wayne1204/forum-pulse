@@ -4,6 +4,7 @@
 #   ./run.sh label [--from YYYY-MM-DD] [--max N] [--workers N]  label Stances only (0 = no cap), republish
 #   ./run.sh rebuild                           re-apply Review Queue rules, republish
 #   ./run.sh serve [port]                      dashboard + Review Queue, http://127.0.0.1:8765
+#   ./run.sh deploy                            upload site/ to Cloudflare Pages (daily does this too)
 #   ./run.sh test                              pytest
 #
 # Creates .venv on first use (uv if present, else python3.11 -m venv).
@@ -27,11 +28,37 @@ fi
 # Cron runs without the login shell's environment; pick up the API key here.
 [ -f .env ] && set -a && . ./.env && set +a
 
+# Publish site/ to Cloudflare Pages, minus the Review Queue: it needs server.py and
+# the local DB, so its links point back at `serve` on this machine instead.
+# Skipped until CLOUDFLARE_API_TOKEN is in .env (or `wrangler login` was run, for manual use).
+deploy() {
+  local wrangler
+  wrangler="$(command -v wrangler || ls -d "$HOME"/.nvm/versions/node/*/bin/wrangler 2>/dev/null | tail -1 || true)"
+  if [ -z "$wrangler" ]; then echo "deploy: wrangler not found (npm install -g wrangler)" >&2; return 1; fi
+  local out=data/deploy
+  mkdir -p "$out"
+  rsync -a --delete --exclude "review.*" site/ "$out/"
+  # Pages won't _redirect to a loopback address, so a stub page hands off instead.
+  cat >"$out/review.html" <<'HTML'
+<!doctype html><meta charset="utf-8"><title>Review Queue</title>
+<meta http-equiv="refresh" content="0; url=http://127.0.0.1:8765/review.html">
+<p>The Review Queue runs locally: <a href="http://127.0.0.1:8765/review.html">open it</a> (needs <code>./run.sh serve</code>).
+HTML
+  # wrangler is a node script; cron's PATH has no node, so put its own bin dir first.
+  PATH="$(dirname "$wrangler"):$PATH" "$wrangler" pages deploy "$out" \
+    --project-name "${CF_PAGES_PROJECT:-forum-pulse}" --branch main --commit-dirty=true
+}
+
 cmd="${1:-daily}"; shift || true
 case "$cmd" in
   test) exec "$PY" -m pytest -q "$@" ;;
+  deploy) deploy ;;
   # One daily run at a time: a cron firing during a long backfill just steps aside.
-  daily|label) mkdir -p data; exec flock -n data/.daily.lock "$PY" -m forum_pulse "$cmd" "$@" ;;
+  daily)
+    mkdir -p data
+    flock -n data/.daily.lock "$PY" -m forum_pulse daily "$@"
+    if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then deploy; fi ;;
+  label) mkdir -p data; exec flock -n data/.daily.lock "$PY" -m forum_pulse "$cmd" "$@" ;;
   rebuild|serve) exec "$PY" -m forum_pulse "$cmd" "$@" ;;
   *) echo "unknown command: $cmd" >&2; exit 2 ;;
 esac
