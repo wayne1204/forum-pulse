@@ -65,17 +65,29 @@ def build_mentions(con) -> int:
 
 def author_stances(con) -> int:
     """標的 Posts that end in 多 or 空 give their author's Stance on the
-    Instruments named in the title, overriding the model."""
+    Instruments named in the title, overriding the model. Instruments named
+    only in the body get none: they are comparisons and background."""
+    # Start over, so a rule change never leaves a stale Author Stance behind:
+    # one the model had labelled goes back to that label, the rest to the queue.
+    con.execute("""UPDATE stances SET stance=model_stance, source='model', model_stance=NULL
+                   WHERE source='author' AND model_stance IS NOT NULL""")
+    con.execute("DELETE FROM stances WHERE source='author'")
     rows = con.execute(f"""
-        SELECT p.title, c.forum, c.day, c.user, h.code, c.id
+        SELECT p.title, c.forum, c.day, c.user, h.code, h.alias
         FROM posts p JOIN comments c ON c.post_id=p.post_id AND c.seq=0
         JOIN hits h ON h.comment_id=c.id
         WHERE p.post_type='標的' AND p.title NOT LIKE 'Re:%' AND p.title NOT LIKE 'Fw:%'
           AND h.code IS NOT NULL AND h.code != '{NOT}'""").fetchall()
+    matcher = Matcher.from_db(con)
+    in_title: dict[str, dict] = {}
     n = 0
     for r in rows:
         m = _AUTHOR_STANCE.search(r["title"])
         if not m:
+            continue
+        if r["title"] not in in_title:
+            in_title[r["title"]] = matcher.find(r["title"])
+        if r["alias"] not in in_title[r["title"]]:
             continue
         stance = "bullish" if m.group(1) == "多" else "bearish"
         mention = con.execute("SELECT n_comments FROM mentions WHERE forum=? AND day=? AND user=? AND code=?",

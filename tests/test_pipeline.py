@@ -122,6 +122,32 @@ def test_author_stance_from_a_target_post_title(con):
     assert [tuple(r) for r in rows] == [("bear", "bearish", "author")]
 
 
+def test_an_author_stance_is_only_for_the_instrument_in_the_title(con):
+    when = datetime(2026, 10, 2, 20, tzinfo=TZ)
+    add_post(con, "M.1790943882.A.49A", "[標的] 2489 瑞軒 多", "bull", when, [],
+             body="比起台積電，瑞軒更有機會")
+    measure.match_comments(con, log=lambda *_: None)
+    measure.build_mentions(con)
+    measure.author_stances(con)
+    rows = con.execute("SELECT code, stance, source FROM stances").fetchall()
+    assert [tuple(r) for r in rows] == [("2489", "bullish", "author")]
+
+
+def test_a_stale_author_stance_gives_way_to_the_model_or_the_queue(con):
+    when = datetime(2026, 10, 2, 20, tzinfo=TZ)
+    add_post(con, "M.1790943882.A.49A", "[標的] 2489 瑞軒 多", "bull", when, [],
+             body="比起台積電，瑞軒更有機會")
+    measure.match_comments(con, log=lambda *_: None)
+    measure.build_mentions(con)
+    # written by the old rule: body Instruments got the title's Stance too
+    con.execute("INSERT INTO stances VALUES('ptt', '2026-10-02', 'bull', '2330', 'bullish', 'author', 1, 'neutral')")
+    con.execute("INSERT INTO stances VALUES('ptt', '2026-10-02', 'bull', '2603', 'bullish', 'author', 1, NULL)")
+    measure.author_stances(con)
+    rows = con.execute("SELECT code, stance, source, model_stance FROM stances ORDER BY code").fetchall()
+    assert [tuple(r) for r in rows] == [("2330", "neutral", "model", None),
+                                        ("2489", "bullish", "author", None)]
+
+
 def test_top_mentioned_and_buzz_spike():
     counts = {f"2026-09-{d:02d}": {"2330": 100, "2603": 1} for d in range(1, 30)}
     counts["2026-09-30"] = {"2330": 100, "2603": 12, "MARKET": 500}
