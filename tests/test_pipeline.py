@@ -198,3 +198,11 @@ def test_an_overseas_instrument_is_judged_on_its_own_market_and_days():
     assert row["1D"] == pytest.approx(0.05 - 0.02)
     assert config.benchmark_of("NASDAQ") == "SP500_TR" and config.benchmark_of("KRX") == "KOSPI"
     assert config.benchmark_of("TPEx") == config.BENCHMARK
+
+
+def test_returns_from_entry_are_plain_returns_on_the_given_days():
+    days = ["2026-10-01", "2026-10-02", "2026-10-05"]
+    px = {"2026-10-02": (100.0, 104.0), "2026-10-05": (104.0, 103.0)}
+    got = backtest.returns_from(px, days, "2026-10-01")
+    assert got["1D"] == pytest.approx(0.04) and got["1W"] is None
+    assert backtest.returns_from(px, days, "2026-10-05") == {h: None for h in config.HORIZONS}

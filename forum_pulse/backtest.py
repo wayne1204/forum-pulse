@@ -26,6 +26,13 @@ def entry_index(trading_days: list[str], forum_day: str) -> int:
     return bisect.bisect_right(trading_days, forum_day)
 
 
+def returns_from(px: dict[str, tuple[float, float]], days: list[str], forum_day: str) -> dict[str, float | None]:
+    """The plain return from Entry over every Horizon, on the trading days `days`."""
+    i = entry_index(days, forum_day)
+    return {name: forward_return(px, days, i, h) if i < len(days) else None
+            for name, h in config.HORIZONS.items()}
+
+
 def run(sig: dict, tallies: dict, price_of, bench: dict, bench_of=None) -> list[dict]:
     """One row per (Signal kind, Instrument, Forum Day): Stance and returns.
     `price_of(code)` returns a price series. `bench_of(code)` is the benchmark

@@ -78,10 +78,10 @@ async function dayView(day) {
     ${legend()}
     <div class="card"><table>
       <thead><tr><th class="n">#</th><th>Instrument</th><th class="n">Mentions</th><th>Signal</th><th>Stance</th>
-        <th class="n">Net</th><th>Group</th>${["1D", "1W", "1M", "3M"].map(h => `<th class="n" title="Excess Return from Entry">${h}</th>`).join("")}</tr></thead>
-      <tbody>${d.rows.map((r, k) => dayRow(r, k)).join("") || `<tr><td colspan="11" class="empty">No Mentions.</td></tr>`}</tbody>
+        <th class="n">Net</th><th>Group</th>${["1D", "1W", "1M", "3M"].map(h => `<th class="n" title="Return from Entry (next trading day's open)">${h}</th>`).join("")}</tr></thead>
+      <tbody>${baselineRow(d.baseline)}${d.rows.map((r, k) => dayRow(r, k)).join("") || `<tr><td colspan="11" class="empty">No Mentions.</td></tr>`}</tbody>
     </table></div>
-    <p class="note">Excess Return = Instrument return from the next trading day's open, minus TAIEX total return over the same Horizon (US stocks: S&P 500 total return; Korean: KOSPI, on their own trading days). Blank until enough days have passed.
+    <p class="note">1D–3M = the Instrument's own return from Entry (the next trading day's open; US and Korean stocks on their own trading days), dividends included. The first row is TAIEX total return over the same days, to compare against. Blank until enough days have passed.
       Click a row for its comments.</p>`;
   const go = dd => { location.hash = "#/day/" + dd; };
   $("#prev").onclick = () => go(days[i - 1]);
@@ -105,14 +105,21 @@ function nearestDay(want) {
 
 function dayRow(r, k) {
   const chips = (r.top ? `<span class="chip top">TOP</span>` : "") + (r.spike ? `<span class="chip spike">SPIKE</span>` : "");
-  const f = r.fwd || {};
+  const f = r.ret || {};
   return `<tr class="rowx" data-code="${esc(r.code)}">
     <td class="n muted">${r.rank ?? ""}</td>
     <td><a href="#/inst/${encodeURIComponent(r.code)}">${esc(r.code)} ${esc(r.name)}</a></td>
     <td class="n">${r.mentions}</td><td>${chips}</td><td>${stanceBar(r.tally)}</td>
     <td class="n">${sgn(r.net)}</td><td>${group(r.group)}</td>
-    ${["1D", "1W", "1M", "3M"].map(h => `<td class="n">${pct(f[h])}</td>`).join("")}
+    ${["1D", "1W", "1M", "3M"].map(h => `<td class="n ${updown(f[h])}">${pct(f[h])}</td>`).join("")}
   </tr><tr class="samples" hidden><td colspan="11"></td></tr>`;
+}
+
+// TAIEX total return over the same Horizons: what any stock is up against.
+function baselineRow(b) {
+  if (!b) return "";
+  return `<tr class="baseline"><td></td><td colspan="6">TAIEX total return <span class="muted">— baseline</span></td>
+    ${["1D", "1W", "1M", "3M"].map(h => `<td class="n ${updown(b[h])}">${pct(b[h])}</td>`).join("")}</tr>`;
 }
 
 // Every comment naming the row's Instrument, filtered by its user's Stance.

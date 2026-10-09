@@ -8,8 +8,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from . import config
-from .backtest import summarise
+from . import config, prices
+from .backtest import returns_from, summarise
 from .instruments import NOT
 from .measure import net_stance, stance_group
 
@@ -47,7 +47,19 @@ def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=
         shutil.copy(f, out / f.name)
 
     names = {r["code"]: r["name"] for r in con.execute("SELECT code, name FROM instruments")}
-    fwd = {(r["kind"], r["code"], r["day"]): r for r in bt_rows}
+    # The Day table shows plain returns from Entry, with TAIEX as its baseline
+    # row; Excess Returns stay on the Backtest and Instrument pages.
+    exchange = dict(con.execute("SELECT code, exchange FROM instruments").fetchall())
+    calendars = {b: sorted(prices.series(con, b))
+                 for b in [config.BENCHMARK] + [n for n, _ in config.OVERSEAS_BENCHMARKS.values()]}
+    px_cache: dict[str, dict] = {config.MARKET: prices.series(con, config.BENCHMARK)}
+
+    def returns(code: str, day: str) -> dict | None:
+        if code not in px_cache:
+            px_cache[code] = prices.series(con, code)
+        if not px_cache[code]:
+            return None
+        return returns_from(px_cache[code], calendars[config.benchmark_of(exchange.get(code, ""))], day)
     comments_per_day = {r["day"]: r["n"] for r in con.execute(
         "SELECT day, COUNT(*) n FROM comments GROUP BY day")}
     queued = dict(con.execute("""SELECT c.day, COUNT(*) FROM hits h JOIN comments c ON c.id=h.comment_id
@@ -65,12 +77,10 @@ def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=
 
         def row(code):
             t = tallies.get((day, code))
-            kind = "Market" if code == config.MARKET else ("Top Mentioned" if code in s["top"] else "Buzz Spike")
-            f = fwd.get((kind, code, day)) or fwd.get(("Buzz Spike", code, day))
             return {"code": code, "name": names.get(code, code), "mentions": by_code.get(code, 0),
                     "rank": rank.get(code), "top": code in s["top"], "spike": code in s["spike"],
                     "tally": t, "net": net_stance(t) if t else None, "group": stance_group(t),
-                    "fwd": {h: f[h] for h in config.HORIZONS} if f else None}
+                    "ret": returns(code, day)}
 
         rows = [row(c) for c in keep]
         featured.update(keep[:ROWS_PER_DAY])
@@ -78,6 +88,7 @@ def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=
             "day": day, "comments": comments_per_day.get(day, 0),
             "mentions": sum(by_code.values()), "queued": queued.get(day, 0),
             "market": row(config.MARKET) if config.MARKET in by_code else None,
+            "baseline": returns(config.MARKET, day),       # TAIEX total return
             "rows": rows})
         _write(out / "data" / "cmt" / f"{day}.js", f"cmt/{day}",
                _comments(con, day, keep + [config.MARKET]))

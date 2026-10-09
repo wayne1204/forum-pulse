@@ -61,7 +61,8 @@ def test_daily_crawls_measures_and_publishes(offline):
     assert key == "day/2026-10-02" and day["comments"] == 3 and day["mentions"] == 3
     [row] = day["rows"]
     assert (row["code"], row["rank"], row["top"], row["net"]) == ("2330", 1, True, 1.0)
-    assert row["fwd"]["1D"] == pytest.approx(0.10 - 0.01) and row["fwd"]["1M"] is None
+    assert row["ret"]["1D"] == pytest.approx(0.10) and row["ret"]["1M"] is None   # plain return
+    assert day["baseline"]["1D"] == pytest.approx(0.01)                              # TAIEX TR
     assert day["market"]["code"] == config.MARKET
     key, cmt = read_js(out / "data" / "cmt" / "2026-10-02.js")
     assert key == "cmt/2026-10-02" and cmt["posts"] == {PID: "[標的] 2330 台積電 多"}

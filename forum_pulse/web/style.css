@@ -91,6 +91,7 @@ th, td { padding: 7px 10px; text-align: left; white-space: nowrap; border-bottom
 th { color: var(--text-secondary); font-weight: 550; font-size: 12px; }
 td.n, th.n { text-align: right; }
 tr.rowx { cursor: pointer; }
+tr.baseline td { background: var(--surface-2); font-weight: 600; border-bottom: 2px solid var(--border); }
 tr.rowx:hover td { background: var(--surface-2); }
 tr.samples td { white-space: normal; background: var(--surface-2); color: var(--text-secondary); font-size: 13px; }
 tr.samples .c { margin: 3px 0; }
