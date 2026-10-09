@@ -136,6 +136,15 @@ def test_an_answer_quoting_the_whole_choice_counts_as_its_code(queued):
     assert _hits(queued)[("三星 HBM 又出包", "三星")] == "005930.KS"
 
 
+def test_not_is_a_choice_even_when_the_alias_has_no_not(abroad):
+    add_post(abroad, PID, "[閒聊] 盤中", "host", DAY, [("u1", "買鑽石不如買勞力士")])
+    measure.match_comments(abroad, log=quiet)
+    prompts = []
+    out = alias_calls.decide(abroad, caller=caller_choosing({"勞力士": NOT}, prompts), log=quiet)
+    assert out["decided"] == 1 and "NOT (names none" in prompts[0]
+    assert _hits(abroad)[("買鑽石不如買勞力士", "力士")] == NOT
+
+
 def test_an_answer_outside_the_choices_leaves_the_hit_queued(queued):
     out = alias_calls.decide(queued, caller=caller_choosing({"HBM": "2330"}), log=quiet)
     assert out["decided"] == 0 and out["pending"] == 3

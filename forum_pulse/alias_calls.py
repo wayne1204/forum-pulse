@@ -56,7 +56,7 @@ def _context(con, h: dict, inst: dict[str, dict]) -> str:
         return f"{code} {i.get('name', '')} ({_WHERE.get(i.get('exchange'), 'listed')})"
 
     lines = [f"Word: {h['alias']}",
-             "Choices: " + " | ".join(choice(c) for c in sorted(h["candidates"])),
+             "Choices: " + " | ".join(choice(c) for c in sorted(h["candidates"] | {NOT})),
              f"[post] {h['title']}"]
     if h["seq"] == 0:
         # A post body can be long: show the stretch around the word.
@@ -111,7 +111,8 @@ def decide(con, caller=None, log=print) -> dict:
                 batch = job[0]
                 for k, h in enumerate(batch):
                     code = got.get(k)
-                    if code not in h["candidates"]:      # unanswered, or not one of the choices
+                    # NOT is always a choice: 力士 inside 勞力士 names neither candidate.
+                    if code not in h["candidates"] | {NOT}:   # unanswered, or not one of the choices
                         continue
                     con.execute("INSERT OR REPLACE INTO alias_calls VALUES(?,?,?,?)",
                                 (h["comment_id"], h["alias"], code, candidates_key(h["candidates"])))
