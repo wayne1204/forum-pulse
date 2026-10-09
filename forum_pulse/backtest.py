@@ -58,24 +58,32 @@ def run(sig: dict, tallies: dict, price_of, bench: dict, bench_of=None) -> list[
                 t = tallies.get((day, code))
                 row = {"kind": kind, "code": code, "day": day, "entry": days[entry_i],
                        "net_stance": net_stance(t) if t else None, "group": stance_group(t)}
+                row["raw"], row["bench"] = {}, {}
                 for name, h in config.HORIZONS.items():
                     r = forward_return(px, days, entry_i, h)
                     rb = forward_return(b, days, entry_i, h)
-                    row[name] = None if r is None or rb is None else (r if code == config.MARKET else r - rb)
+                    both = r is not None and rb is not None
+                    row[name] = None if not both else (r if code == config.MARKET else r - rb)
+                    row["raw"][name] = r if both else None
+                    row["bench"][name] = rb if both else None
                 rows.append(row)
     return rows
 
 
 def summarise(rows: list[dict]) -> list[dict]:
-    """n, mean, median and share beating the Market, per kind × group × Horizon."""
+    """Per kind × group × Horizon: n, the mean and median plain return from
+    Entry, the benchmark's mean over the same Signals' days, and the share
+    that beat it."""
     out = []
     for kind in ("Top Mentioned", "Buzz Spike", "Market"):
         for group in ("All", "Bullish", "Split", "Bearish"):
             sel = [r for r in rows if r["kind"] == kind and (group == "All" or r["group"] == group)]
             for name in config.HORIZONS:
-                vals = [r[name] for r in sel if r[name] is not None]
+                pairs = [(r["raw"][name], r["bench"][name]) for r in sel if r["raw"][name] is not None]
+                vals = [v for v, _ in pairs]
                 out.append({"kind": kind, "group": group, "horizon": name, "n": len(vals),
                             "mean": statistics.fmean(vals) if vals else None,
                             "median": statistics.median(vals) if vals else None,
-                            "hit": sum(v > 0 for v in vals) / len(vals) if vals else None})
+                            "bench": statistics.fmean(b for _, b in pairs) if pairs else None,
+                            "hit": sum(v > b for v, b in pairs) / len(pairs) if pairs else None})
     return out

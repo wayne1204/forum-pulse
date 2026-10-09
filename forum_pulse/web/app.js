@@ -204,20 +204,26 @@ async function backtestView() {
   setNav("backtest");
   const b = await FP.load("backtest", META.built);
   const H = b.horizons, cfg = META.config;
-  const cell = s => s && s.n ? `<td class="n cell"><div class="main ${updown(s.mean, 2)}">${pct(s.mean, 2)}</div>
-      <div class="sm">med ${pct(s.median, 2)} · beat ${(s.hit * 100).toFixed(0)}% · n ${s.n}</div></td>` : `<td class="n cell muted">–</td>`;
+  // Plain mean return from Entry; the benchmark over the same Signals' days is
+  // the table's baseline row, and per cell in its tooltip and "beat" share.
+  const cell = (s, market) => s && s.n ? `<td class="n cell" title="${market ? "" : `TAIEX over the same days: ${pct(s.bench, 2)}`}">
+      <div class="main ${updown(s.mean, 2)}">${pct(s.mean, 2)}</div>
+      <div class="sm">med ${pct(s.median, 2)}${market ? "" : ` · beat TAIEX ${(s.hit * 100).toFixed(0)}%`} · n ${s.n}</div></td>` : `<td class="n cell muted">–</td>`;
   const table = kind => {
-    const rows = ["All", "Bullish", "Split", "Bearish"].map(g => {
-      const by = Object.fromEntries(b.summary.filter(s => s.kind === kind && s.group === g).map(s => [s.horizon, s]));
-      return `<tr><td>${g === "All" ? g : group(g)}</td>${H.map(h => cell(by[h])).join("")}</tr>`;
-    }).join("");
-    return `<div class="card btgrid"><table><thead><tr><th>Stance Group</th>${H.map(h => `<th class="n">${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    const market = kind === "Market";
+    const of = g => Object.fromEntries(b.summary.filter(s => s.kind === kind && s.group === g).map(s => [s.horizon, s]));
+    const base = of("All");
+    const baseline = market ? "" : `<tr class="baseline"><td>TAIEX total return <span class="muted">— same days</span></td>
+      ${H.map(h => base[h] && base[h].n ? `<td class="n cell"><div class="main ${updown(base[h].bench, 2)}">${pct(base[h].bench, 2)}</div></td>` : `<td class="n cell muted">–</td>`).join("")}</tr>`;
+    const rows = ["All", "Bullish", "Split", "Bearish"].map(g =>
+      `<tr><td>${g === "All" ? g : group(g)}</td>${H.map(h => cell(of(g)[h], market)).join("")}</tr>`).join("");
+    return `<div class="card btgrid"><table><thead><tr><th>Stance Group</th>${H.map(h => `<th class="n">${h}</th>`).join("")}</tr></thead><tbody>${baseline}${rows}</tbody></table></div>`;
   };
   const mc = b.model_check;
   const recent = b.signals.slice().sort((x, y) => y.day.localeCompare(x.day)).slice(0, 300);
   $("#view").innerHTML = `
     <h1>Backtest</h1>
-    <p class="sub">Mean Excess Return from Entry (next trading day's open) vs TAIEX total return (overseas stocks: their own market's index), by Stance Group.
+    <p class="sub">Mean return from Entry (the next trading day's open), dividends included, by Stance Group. The first row of each table is TAIEX total return over the same days; "beat TAIEX" is the share of Signals that did better than it (overseas stocks: their own market's index).
       Bullish ≥ +${cfg.cutoff}, Bearish ≤ −${cfg.cutoff}, needs ≥ ${cfg.min_decided} bullish-or-bearish Mentions.</p>
     <h2>Top Mentioned <span class="muted">— the ${cfg.top_n} most-mentioned Instruments each day</span></h2>${table("Top Mentioned")}
     <h2>Buzz Spike <span class="muted">— ≥ ${cfg.spike_ratio}× its 20-trading-day average and ≥ ${cfg.spike_min} Mentions</span></h2>${table("Buzz Spike")}
@@ -228,7 +234,7 @@ async function backtestView() {
     <div class="card"><table><thead><tr><th>Forum Day</th><th>Instrument</th><th>Signal</th><th class="n">Net</th><th>Group</th>
       ${H.map(h => `<th class="n">${h}</th>`).join("")}</tr></thead><tbody>
       ${recent.map(s => `<tr><td><a href="#/day/${s.day}">${s.day}</a></td><td><a href="#/inst/${encodeURIComponent(s.code)}">${esc(s.code)} ${esc(s.name)}</a></td>
-        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${group(s.group)}</td>${H.map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
+        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${group(s.group)}</td>${H.map(h => `<td class="n ${updown(s.raw[h])}" title="TAIEX over the same days: ${pct(s.bench[h])}">${pct(s.raw[h])}</td>`).join("")}</tr>`).join("")
         || `<tr><td colspan="9" class="empty">No Signals with prices yet.</td></tr>`}
     </tbody></table></div>`;
 }

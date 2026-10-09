@@ -206,3 +206,16 @@ def test_returns_from_entry_are_plain_returns_on_the_given_days():
     got = backtest.returns_from(px, days, "2026-10-01")
     assert got["1D"] == pytest.approx(0.04) and got["1W"] is None
     assert backtest.returns_from(px, days, "2026-10-05") == {h: None for h in config.HORIZONS}
+
+
+def test_summary_is_plain_returns_with_the_benchmark_over_the_same_days():
+    bench = {"2026-10-01": (100.0, 100.0), "2026-10-02": (100.0, 101.0), "2026-10-05": (101.0, 100.0)}
+    up, down = {"2026-10-02": (50.0, 55.0)}, {"2026-10-05": (50.0, 49.0)}
+    sig = {"2026-10-01": {"top": {"UP"}, "spike": set()}, "2026-10-02": {"top": {"DOWN"}, "spike": set()}}
+    rows = backtest.run(sig, {}, lambda c: up if c == "UP" else down, bench)
+    assert rows[0]["raw"]["1D"] == pytest.approx(0.10) and rows[0]["bench"]["1D"] == pytest.approx(0.01)
+    [s] = [s for s in backtest.summarise(rows) if s["kind"] == "Top Mentioned" and s["group"] == "All" and s["horizon"] == "1D"]
+    assert s["n"] == 2
+    assert s["mean"] == pytest.approx((0.10 - 0.02) / 2)                    # plain returns
+    assert s["bench"] == pytest.approx((0.01 + (100 / 101 - 1)) / 2)      # TAIEX on the same days
+    assert s["hit"] == 0.5                                                  # UP beat it, DOWN did not
