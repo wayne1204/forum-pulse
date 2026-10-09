@@ -115,6 +115,9 @@ function dayRow(r, k) {
   </tr><tr class="samples" hidden><td colspan="11"></td></tr>`;
 }
 
+// One Signal's plain return over a Horizon; its index over the same days in the tooltip.
+const retCell = (s, h) => `<td class="n ${updown(s.raw[h])}" title="${esc(s.index)} over the same days: ${pct(s.bench[h])}">${pct(s.raw[h])}</td>`;
+
 // TAIEX total return over the same Horizons: what any stock is up against.
 function baselineRow(b) {
   if (!b) return "";
@@ -161,11 +164,11 @@ async function instView(code) {
       <div class="chartbox"><h3>Mentions <span class="muted">— outlined bars were Signals</span></h3><div class="c"><canvas id="c-ment"></canvas></div></div>
       <div class="chartbox"><h3>Net Stance <span class="muted">— +1 all bullish, −1 all bearish</span></h3><div class="c"><canvas id="c-net"></canvas></div></div>
     </div>
-    <h2>Signals and what followed</h2>
+    <h2>Signals and what followed <span class="muted">— return from Entry${d.code === "MARKET" ? "" : "; hover for its index over the same days"}</span></h2>
     <div class="card"><table><thead><tr><th>Forum Day</th><th>Signal</th><th class="n">Net</th><th>Group</th>
       ${["1D", "1W", "1M", "3M"].map(h => `<th class="n">${h}</th>`).join("")}</tr></thead>
       <tbody>${sigs.map(s => `<tr><td><a href="#/day/${s.day}">${s.day}</a></td><td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td>
-        <td>${group(s.group)}</td>${["1D", "1W", "1M", "3M"].map(h => `<td class="n ${updown(s[h])}">${pct(s[h])}</td>`).join("")}</tr>`).join("")
+        <td>${group(s.group)}</td>${["1D", "1W", "1M", "3M"].map(h => retCell(s, h)).join("")}</tr>`).join("")
         || `<tr><td colspan="8" class="empty">No Signals with prices yet.</td></tr>`}</tbody></table></div>`;
   drawInst(d);
 }
@@ -234,7 +237,7 @@ async function backtestView() {
     <div class="card"><table><thead><tr><th>Forum Day</th><th>Instrument</th><th>Signal</th><th class="n">Net</th><th>Group</th>
       ${H.map(h => `<th class="n">${h}</th>`).join("")}</tr></thead><tbody>
       ${recent.map(s => `<tr><td><a href="#/day/${s.day}">${s.day}</a></td><td><a href="#/inst/${encodeURIComponent(s.code)}">${esc(s.code)} ${esc(s.name)}</a></td>
-        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${group(s.group)}</td>${H.map(h => `<td class="n ${updown(s.raw[h])}" title="TAIEX over the same days: ${pct(s.bench[h])}">${pct(s.raw[h])}</td>`).join("")}</tr>`).join("")
+        <td>${s.kind}</td><td class="n">${sgn(s.net_stance)}</td><td>${group(s.group)}</td>${H.map(h => retCell(s, h)).join("")}</tr>`).join("")
         || `<tr><td colspan="9" class="empty">No Signals with prices yet.</td></tr>`}
     </tbody></table></div>`;
 }

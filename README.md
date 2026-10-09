@@ -42,7 +42,7 @@ Review Queue needs `serve`.
 | Mentions | `measure.py` | One per user × Instrument × Forum Day. |
 | Stance | `stance.py` | Claude Haiku 4.5 (via `claude -p`, or the API) labels every Mention, 25 per request, seeing the Post title and the 3 pushes before each line. 標的 Posts ending 多/空 give an Author Stance, which overrides the model and is used to check it. A run is capped (2,000 Mentions on the CLI, $5 on the API); the next run continues. |
 | Prices | `prices.py` | yfinance dividend-adjusted open/close; benchmark is the TAIEX total-return index (TWSE MFI94U), or for Overseas Instruments the S&P 500 total return (`^SP500TR`) / KOSPI (`^KS11`). |
-| Backtest | `backtest.py` | Entry = next trading day's open; 1D/1W/1M/3M = 1/5/21/63 trading days; Excess Return vs TAIEX TR, or an Overseas Instrument's own index on its own trading days (a US Entry is the next US session after the Forum Day). The Market is judged on its raw return. |
+| Backtest | `backtest.py` | Entry = next trading day's open; 1D/1W/1M/3M = 1/5/21/63 trading days; pages show each Signal's plain return, with TAIEX total return over the same days as the baseline (an Overseas Instrument: its own index on its own trading days; a US Entry is the next US session after the Forum Day). Excess Return over that index gives each group's "beat" share. |
 | Site | `site.py`, `web/` | One JS data file per Forum Day and per Instrument. |
 
 Tunables (Top N, spike ratio, Stance Group cut-off, budget) are in

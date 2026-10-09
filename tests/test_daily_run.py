@@ -73,6 +73,8 @@ def test_daily_crawls_measures_and_publishes(offline):
     assert inst["series"] == [["2026-10-02", 2, 1.0, 99.0, True, False]]
     _, bt = read_js(out / "data" / "backtest.js")
     assert {s["code"] for s in bt["signals"]} == {"2330", config.MARKET}
+    assert {s["index"] for s in bt["signals"]} == {"TAIEX"}
+    assert inst["signals"][0]["raw"]["1D"] == pytest.approx(0.10)       # plain return on the Instrument page
     assert bt["model_check"] == {"n": 0, "agree": 0}
     _, meta = read_js(out / "data" / "meta.js")
     assert meta["days"] == ["2026-10-02"]

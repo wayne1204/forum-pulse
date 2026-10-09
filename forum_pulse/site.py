@@ -54,6 +54,13 @@ def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=
                  for b in [config.BENCHMARK] + [n for n, _ in config.OVERSEAS_BENCHMARKS.values()]}
     px_cache: dict[str, dict] = {config.MARKET: prices.series(con, config.BENCHMARK)}
 
+    index_name = {config.BENCHMARK: "TAIEX", "SP500_TR": "S&P 500", "KOSPI": "KOSPI"}
+
+    def signal(r: dict) -> dict:
+        """A Signal row for the pages, naming the index it was measured against."""
+        return dict(r, name=names.get(r["code"], r["code"]),
+                    index=index_name.get(config.benchmark_of(exchange.get(r["code"], "")), "TAIEX"))
+
     def returns(code: str, day: str) -> dict | None:
         if code not in px_cache:
             px_cache[code] = prices.series(con, code)
@@ -108,13 +115,13 @@ def build(con, counts: dict, sig: dict, tallies: dict, bt_rows: list[dict], log=
                            code in sig.get(day, {}).get("spike", ())])
         _write(out / "data" / "inst" / f"{code}.js", f"inst/{code}",
                {"code": code, "name": names.get(code, code), "series": series,
-                "signals": [r for r in bt_rows if r["code"] == code]})
+                "signals": [signal(r) for r in bt_rows if r["code"] == code]})
 
     agree = con.execute("""SELECT COUNT(*) n, SUM(stance=model_stance) ok FROM stances
                            WHERE source='author' AND model_stance IS NOT NULL""").fetchone()
     _write(out / "data" / "backtest.js", "backtest", {
         "summary": summarise(bt_rows), "horizons": list(config.HORIZONS),
-        "signals": [dict(r, name=names.get(r["code"], r["code"])) for r in bt_rows],
+        "signals": [signal(r) for r in bt_rows],
         "model_check": {"n": agree["n"], "agree": agree["ok"] or 0}})
     _write(out / "data" / "meta.js", "meta", {
         "days": days, "built": datetime.now(config.TZ).isoformat(timespec="minutes"),
