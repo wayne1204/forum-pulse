@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from conftest import add_post
-from forum_pulse import backtest, config, measure, ptt
+from conftest import LISTED, SLANG, add_post
+from forum_pulse import backtest, config, instruments, measure, ptt
 from forum_pulse.instruments import NOT, Matcher, resolve
 
 FIX = Path(__file__).parent / "fixtures"
@@ -86,6 +86,15 @@ def test_ambiguous_aliases_wait_for_the_user(matcher):
     assert matcher.find("長榮噴")["長榮"] == {"2603", "2618"}
     assert matcher.find("統一意見")["統一"] == {"1216", NOT}
     assert resolve("長榮", {"2603", "2618"}, "長榮噴", 1, {}) is None
+
+
+def test_a_code_that_is_also_a_year_may_name_nothing(con):
+    instruments.refresh(con, LISTED + [{"code": "2008", "name": "高興昌", "kind": "stock", "exchange": "TWSE",
+                                        "yf_symbol": "2008.TW"}], SLANG)
+    m = Matcher.from_db(con)
+    assert m.find("崩回2008金融海嘯") == {"2008": {"2008", NOT}}
+    assert m.find("2008 高興昌 買超") == {"2008": {"2008"}, "高興昌": {"2008"}}
+    assert m.find("2330 噴")["2330"] == {"2330"}
 
 
 def test_rules_resolve_most_specific_first():

@@ -14,7 +14,7 @@ from .stance import QuotaExhausted, _api_caller, _cli_caller, _safe
 SYSTEM = """You read comments from PTT Stock (批踢踢股票板), Taiwan's largest retail stock forum. Each item quotes one WORD from a comment that might name a listed company, and the choices it could mean. Decide what the word means IN THIS COMMENT.
 
 - Pick an instrument's code when the comment is about that company or its stock: its price, earnings, products as a business, news, buying or selling it.
-- Pick NOT when the word is used as an ordinary word (大量 "a lot", 統一 "unify", 全新 "brand new", 創意 "creativity"), a person or nickname (川寶 / 川普 is Donald Trump), a place, an event, or anything other than these instruments.
+- Pick NOT when the word is used as an ordinary word (大量 "a lot", 統一 "unify", 全新 "brand new", 創意 "creativity"), a person or nickname (川寶 / 川普 is Donald Trump), a year (2008 金融海嘯, 夢迴2020, 2027 的 EPS), a place, an event, or anything other than these instruments.
 - When a Taiwan and an overseas company share a name, read the context: 三星 next to 記憶體, HBM, 韓國, 手機 or Samsung's results is Samsung (Korea), not the Taiwan stock 5007 三星.
 - Judge only the line marked >>; the other lines are context.
 

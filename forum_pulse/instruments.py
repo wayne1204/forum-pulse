@@ -11,6 +11,7 @@ import requests
 from . import config
 
 NOT = "NOT"
+_YEAR = re.compile(r"19[89]\d|20[0-4]\d")
 _ISIN = "https://isin.twse.com.tw/isin/C_public.jsp?strMode={mode}"
 _KEEP_SECTIONS = {"股票": "stock", "ETF": "etf", "臺灣存託憑證": "stock",
                   "臺灣存託憑證(TDR)": "stock"}
@@ -70,7 +71,8 @@ def refresh(con, listed: list[dict] | None = None, slang: dict | None = None) ->
                     overseas)
     con.execute("INSERT INTO instruments VALUES(?, '大盤', 'market', '-', NULL)", (config.MARKET,))
     codes = {r["code"] for r in listed} | {r["code"] for r in overseas} | {config.MARKET}
-    maybe_nothing = set(slang.get("maybe_nothing", []))
+    # A code that is also a year (2008 金融海嘯, 夢迴2020) may name nothing too.
+    maybe_nothing = set(slang.get("maybe_nothing", [])) | {c for c in codes if _YEAR.fullmatch(c)}
     rows = set()
     for r in listed:
         rows.add((r["code"], r["code"], "official"))
@@ -172,7 +174,8 @@ class Matcher:
             # more often a price (台積電 2500 撐住) than a second stock.
             if named and code.isdigit() and not code.startswith("0") and not (cands & named):
                 continue
-            found[code] = set(cands)
+            # Its own name beside it settles it (2027 大成鋼 is no year).
+            found[code] = (cands & named) or set(cands)
         return found
 
 
